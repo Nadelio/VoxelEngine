@@ -29,6 +29,7 @@ TODO:
 	- Gravity
 	- Collisions
 	- Falling blocks (sand)
+- Get a proper UI system integrated instead of the current BS
 */
 
 namespace {
