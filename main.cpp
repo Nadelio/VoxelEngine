@@ -17,24 +17,20 @@
 // voxel engine
 #include "AtlasTexture.hpp"
 #include "BlockRegistry.hpp"
-#include "Camera.hpp"
 #include "CubeMesh.hpp"
-#include "DebugOverlay.hpp"
 #include "Grid.hpp"
-#include "Hotbar.hpp"
+#include "Camera.hpp"
+#include "Physics.hpp"
 #include "Shader.hpp"
+#include "DebugOverlay.hpp"
+#include "Hotbar.hpp"
 
 /*
 TODO:
-- Physics Engine
-	- Gravity
-	- Collisions
-	- Falling blocks (sand)
 - Get a proper UI system integrated instead of the current BS
 */
 
 namespace {
-
 	bool FileExists(const std::string& path) {
 		std::ifstream file(path);
 		return file.good();
@@ -107,6 +103,8 @@ int main() {
 	if(!SDL_SetWindowRelativeMouseMode(window, true)) {
 		std::fprintf(stderr, "Warning: could not enable relative mouse mode: %s\n", SDL_GetError());
 	}
+
+	{
 
 	// grab all the assets
 	const std::string vertShaderPath = ResolveAssetPath("assets/shaders/voxel.vert");
@@ -222,10 +220,10 @@ int main() {
 
 	// init block registry and register blocks
 	BlockRegistry blockRegistry;
-	if(!blockRegistry.Register({GRASS, "GRASS", grassBlock, &atlas}) ||
-	   !blockRegistry.Register({DIRT, "DIRT", dirtBlock, &atlas}) ||
-	   !blockRegistry.Register({STONE, "STONE", stoneBlock, &atlas}) ||
-	   !blockRegistry.Register({SAND, "SAND", sandBlock, &atlas})) {
+	if(!blockRegistry.Register({GRASS, "GRASS", grassBlock, &atlas, false}) ||
+	   !blockRegistry.Register({DIRT, "DIRT", dirtBlock, &atlas, false}) ||
+	   !blockRegistry.Register({STONE, "STONE", stoneBlock, &atlas, false}) ||
+	   !blockRegistry.Register({SAND, "SAND", sandBlock, &atlas, true})) {
 		std::fprintf(stderr, "Block registration failed. Ensure block IDs are unique and atlas is valid.\n");
 		SDL_GL_DestroyContext(glContext);
 		SDL_DestroyWindow(window);
@@ -262,6 +260,7 @@ int main() {
 		}
 	}
 
+	// stone layer
 	for(int z = 0; z < 5; ++z) {
 		for(int x = 0; x < 5; ++x) {
 			if(!grid.AddBlock(x, -2, z, STONE)) {
@@ -293,8 +292,18 @@ int main() {
 	glCullFace(GL_BACK);
 	glFrontFace(GL_CCW);
 
+	// initialize player
+	Physics::Entity player;
+	player.radius = 0.30f;
+	player.height = 1.5f;
+	player.eyeFromFeet = 1.35f;
+	constexpr float kMoveSpeed = 4.5f;
+	constexpr float kGravity = 21.0f;
+	constexpr float kJumpSpeed = 7.0f;
+	
 	// runtime variables
 	Camera camera;
+	Physics physics(grid, blockRegistry);
 	bool running = true;
 	bool debug_view = true;
 	bool debug_wireframe = false;
@@ -306,6 +315,10 @@ int main() {
 	double fpsAccumulatedSeconds = 0.0;
 	int fpsFrameCount = 0;
 	int displayedFps = 0;
+	
+	// place player
+	player.position = camera.position;
+	physics.teleportTo(player, {0.5f, 3.0f, 0.5f}, &camera);
 
 	// main loop
 	while(running) {
@@ -357,7 +370,9 @@ int main() {
 						if(!grid.HasBlockAt(placePos)) {
 							const uint32_t selectedBlockID = hotbar.CurrentBlockID();
 							if(selectedBlockID != 0u || hotbar.SlotHasBlock(hotbar.SelectedSlot())) {
-								grid.AddBlock(placePos.x, placePos.y, placePos.z, selectedBlockID);
+								if (physics.CanPlaceBlockAt(player, camera, placePos)) {
+									grid.AddBlock(placePos.x, placePos.y, placePos.z, selectedBlockID);
+								}
 							}
 						}
 					}
@@ -390,9 +405,44 @@ int main() {
 			}
 		}
 
-		const bool* keys = SDL_GetKeyboardState(nullptr);
-		camera.UpdateFromKeyboard(keys, static_cast<float>(dt));
 		camera.UpdateFromMouseDelta(mouseDeltaX, mouseDeltaY);
+
+		const bool* keys = SDL_GetKeyboardState(nullptr);
+
+		glm::vec3 forward = camera.Forward();
+		forward.y = 0.0f;
+		if(glm::length(forward) > 0.0001f) {
+			forward = glm::normalize(forward);
+		}
+		glm::vec3 right = glm::cross(forward, glm::vec3(0.0f, 1.0f, 0.0f));
+		if(glm::length(right) > 0.0001f) {
+			right = glm::normalize(right);
+		}
+
+		glm::vec3 moveDir(0.0f);
+		if(keys[SDL_SCANCODE_W]) moveDir += forward;
+		if(keys[SDL_SCANCODE_S]) moveDir -= forward;
+		if(keys[SDL_SCANCODE_D]) moveDir += right;
+		if(keys[SDL_SCANCODE_A]) moveDir -= right;
+		if(glm::length(moveDir) > 0.0001f) {
+			moveDir = glm::normalize(moveDir);
+		}
+		const glm::vec3 desiredHorizontalVelocity = moveDir * kMoveSpeed;
+
+		physics.StepEntityEuler(
+			player,
+			static_cast<float>(dt),
+			desiredHorizontalVelocity,
+			keys[SDL_SCANCODE_SPACE],
+			kGravity,
+			kJumpSpeed
+		);
+		physics.StepBlockGravity(static_cast<float>(dt));
+		physics.UpdateFallingBlocks(static_cast<float>(dt));
+		physics.ForceEntityUpIfInsideBlock(player);
+
+		camera.position = player.position;
+
 
 		// window resizing
 		int width = 0;
@@ -412,6 +462,13 @@ int main() {
 		// debug
 		if(!(debug_view && debug_wireframe_only)) {
 			grid.Draw(defaultShader, atlas, projection, view);
+
+			// Render sand blocks that are currently mid-fall at their float positions.
+			std::vector<Grid::FloatBlock> fallingVisual;
+			for (const Physics::FallingBlock& fb : physics.GetFallingBlocks()) {
+				fallingVisual.push_back({fb.pos, fb.blockID});
+			}
+			grid.DrawFloatBlocks(fallingVisual, defaultShader, atlas, projection, view);
 		}
 
 		// more debug
@@ -449,7 +506,10 @@ int main() {
 		SDL_GL_SwapWindow(window);
 	}
 
-	// cleanup
+	// cleanup shared debug meshes created inside Grid.cpp while context is still alive.
+	Grid::ReleaseSharedGLResources();
+	}
+
 	SDL_GL_DestroyContext(glContext);
 	SDL_DestroyWindow(window);
 	SDL_Quit();

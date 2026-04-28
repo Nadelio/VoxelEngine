@@ -3,6 +3,7 @@
 #include <functional>
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 #include <glm/glm.hpp>
 
@@ -69,6 +70,23 @@ public:
                           const glm::mat4& projection, const glm::mat4& view) const;
 
     int BlockCount() const;
+
+    // Iterate all placed blocks in world space.
+    void VisitBlocks(const std::function<void(const glm::ivec3&, uint32_t)>& callback) const;
+
+    // Releases process-wide debug mesh GL resources created in Grid.cpp.
+    static void ReleaseSharedGLResources();
+
+    // A block at an arbitrary float position (used to render in-flight falling blocks).
+    struct FloatBlock {
+        glm::vec3 pos;
+        uint32_t  blockID;
+    };
+
+    // Render a list of blocks at continuous float positions using the voxel shader.
+    void DrawFloatBlocks(const std::vector<FloatBlock>& blocks,
+                         Shader& shader, const AtlasTexture& atlas,
+                         const glm::mat4& projection, const glm::mat4& view);
 
 private:
     struct IVec3Hash {

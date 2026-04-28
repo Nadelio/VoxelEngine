@@ -12,6 +12,7 @@ struct BlockData {
     std::string name;
     FaceTileMap faceTiles{};
     const AtlasTexture* atlas = nullptr;
+    bool affectedByGravity = false;
 };
 
 class BlockRegistry {
