@@ -1,0 +1,120 @@
+name: Cross-Platform Build
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+env:
+  SDL3_REF: release-3.4.4
+  GLM_REF: 1.0.3
+  STB_REF: master
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: cache third-party deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Libraries/SDL
+            ~/Libraries/glm-1.0.3
+            ~/Libraries/stb_image
+          key: deps-${{ runner.os }}-${{ env.SDL3_REF }}-${{ env.GLM_REF }}-${{ env.STB_REF }}
+
+      - name: cache cmake build tree
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: build-${{ runner.os }}-${{ env.SDL3_REF }}-${{ env.GLM_REF }}-${{ env.STB_REF }}-${{ hashFiles('CMakeLists.txt', 'vcpkg.json') }}
+          restore-keys: |
+            build-${{ runner.os }}-${{ env.SDL3_REF }}-${{ env.GLM_REF }}-${{ env.STB_REF }}-
+            build-${{ runner.os }}-
+
+      - name: install linux deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            build-essential \
+            pkg-config \
+            libgl1-mesa-dev \
+            libx11-dev \
+            libxext-dev \
+            libxrandr-dev \
+            libxrender-dev \
+            libxfixes-dev \
+            libxi-dev \
+            libxcursor-dev \
+            libxinerama-dev \
+            libxss-dev \
+            libasound2-dev \
+            libpulse-dev \
+            libudev-dev \
+            libdbus-1-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            wayland-protocols
+
+      - name: fetch 3rd-party headers & SDL3 src
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "$HOME/Libraries"
+
+          if [ ! -d "$HOME/Libraries/SDL" ]; then
+            git clone --depth 1 --branch "$SDL3_REF" https://github.com/libsdl-org/SDL.git "$HOME/Libraries/SDL"
+          fi
+
+          if [ ! -d "$HOME/Libraries/glm-1.0.3" ]; then
+            git clone --depth 1 --branch "$GLM_REF" https://github.com/g-truc/glm.git "$HOME/Libraries/glm-1.0.3"
+          fi
+
+          if [ ! -d "$HOME/Libraries/stb_image" ]; then
+            git clone --depth 1 --branch "$STB_REF" https://github.com/nothings/stb.git "$HOME/Libraries/stb_image"
+          fi
+
+      - name: config
+        shell: bash
+        run: >-
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DGLM_ROOT=$HOME/Libraries/glm-1.0.3
+          -DSTB_ROOT=$HOME/Libraries/stb_image
+          -DSDL3_ROOT=$HOME/Libraries/SDL
+
+      - name: build standalone
+        shell: bash
+        run: cmake --build build --config Release --target standalone
+
+      - name: test (if present)
+        shell: bash
+        run: |
+          if [ -f "build/CTestTestfile.cmake" ] || [ -d "build/Testing" ]; then
+            ctest --test-dir build --output-on-failure -C Release
+          else
+            echo "No tests discovered, skipping ctest."
+          fi
+
+      - name: upload standalone
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxelengine-${{ runner.os }}
+          path: |
+            build/standalone/Release/**
+            build/standalone/**
+          if-no-files-found: error

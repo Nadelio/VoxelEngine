@@ -4,6 +4,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <iostream>
 
 // sdl
 #include <SDL3/SDL.h>
@@ -68,7 +69,7 @@ namespace {
 		return relativePath;
 	}
 
-	// Parses blocks.data and registers each block into 'registry'.
+	// Parses blocks.data and registers each block into registry.
 	// Returns false if the file cannot be opened or a registration fails.
 	bool LoadBlocks(const std::string& path, const AtlasTexture* atlas, BlockRegistry& registry) {
 		std::ifstream file(path);
@@ -109,6 +110,14 @@ namespace {
 }
 
 int main() {
+
+	std::cout << "TODO:\n"
+			  << "- Refactor UI to use Dear ImGUI\n"
+			  << "\t- Reformat debug overlay to have block data span multiple lines instead of a single long line\n"
+			  << "- Terrain Generation\n"
+			  << "\t- Saving maps to file\n"
+			  << "- Rendering\n"
+			  << "\t- [BUG] Greedy meshing doesn't run every frame/tick or wireframe only view doesn't update meshes every frame/tick\n";
 
 	// init SDL and OpenGL
 	if(!SDL_Init(SDL_INIT_VIDEO)) {
