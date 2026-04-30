@@ -20,7 +20,7 @@ namespace {
 
     bool gOverlayGlLoaded = false;
 
-    void* GLProc(const char* name) {
+    SDL_FunctionPointer GLProc(const char* name) {
         return SDL_GL_GetProcAddress(name);
     }
 

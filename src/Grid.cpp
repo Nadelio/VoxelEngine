@@ -29,7 +29,7 @@ namespace {
     GLuint gFallVbo = 0;
     GLuint gFallEbo = 0;
 
-    void* GLProc(const char* name) {
+    SDL_FunctionPointer GLProc(const char* name) {
         return SDL_GL_GetProcAddress(name);
     }
 
