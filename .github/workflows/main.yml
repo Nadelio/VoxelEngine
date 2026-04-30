@@ -62,6 +62,7 @@ jobs:
             libxcursor-dev \
             libxinerama-dev \
             libxss-dev \
+            libxtst-dev \
             libasound2-dev \
             libpulse-dev \
             libudev-dev \
