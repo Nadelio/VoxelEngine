@@ -146,8 +146,8 @@ jobs:
         with:
           tag_name: latest-build
           name: "Latest Build"
-          prerelease: true
-          make_latest: false
+          prerelease: false
+          make_latest: true
           body: |
             Automated build from the latest commit on `master`.
 
