@@ -17,6 +17,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
 
 // voxel engine
 #include "AtlasTexture.hpp"
@@ -107,8 +109,20 @@ namespace {
 		return true;
 	}
 	
-	template<typename T,auto delfn> requires(std::is_pointer_v<T>)
-	using managed_ptr = std::unique_ptr<std::remove_pointer_t<T>, decltype([](T handle){ if(handle) delfn(handle); })>;
+
+	template<typename T,auto delfn>
+	struct managed_ptr_helper {
+		struct deleter {
+			void operator()(T handle) const{
+				if(handle) delfn(handle);
+			}
+		};
+		static_assert(std::is_pointer_v<T>,"managed_ptr must manage a pointer type");
+		using type = std::unique_ptr<std::remove_pointer_t<T>, deleter>;
+	};
+	template<typename T,auto delfn>
+	using managed_ptr = typename managed_ptr_helper<T,delfn>::type;
+
 
 	[[noreturn]] void quit(int code){
 		SDL_Quit();
@@ -141,13 +155,13 @@ int main() {
 		quit(1);
 	}
 
-	managed_ptr<SDL_Window*, SDL_DestroyWindow> window{SDL_CreateWindow("Voxel Engine", 1280, 720, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE)};
+	managed_ptr<SDL_Window*, SDL_DestroyWindow> window(SDL_CreateWindow("Voxel Engine", 1280, 720, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE));
 	if(!window) {
 		std::fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
 		quit(1);
 	}
 
-	managed_ptr<SDL_GLContext, SDL_GL_DestroyContext> glContext{SDL_GL_CreateContext(window)};
+	managed_ptr<SDL_GLContext, SDL_GL_DestroyContext> glContext{SDL_GL_CreateContext(window.get())};
 	if(!glContext) {
 		std::fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
 		quit(1);
@@ -439,7 +453,8 @@ int main() {
 		crawlToggleThisFrame = crawlComboDown && !prevCrawlComboDown;
 		prevCrawlComboDown = crawlComboDown;
 
-		glm::vec3 forward = camera.HorizontalForward();
+		// avoid perspective errors
+		glm::vec3 forward = camera.Forward();
 		glm::vec3 right = glm::cross(forward, glm::vec3(0.0f, 1.0f, 0.0f));
 
 		glm::vec3 moveDir(0.0f);
@@ -468,6 +483,10 @@ int main() {
 		physics.ForceEntityUpIfInsideBlock(player);
 
 		camera.position = player.position;
+
+		// this prevents weird errors with the perspective
+		SDL_GetWindowSize(window.get(), &winWidth, &winHeight);
+		glViewport(0, 0, winWidth, winHeight);
 
 		// bg color
 		glClearColor(0.08f, 0.10f, 0.14f, 1.0f);

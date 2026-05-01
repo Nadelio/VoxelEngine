@@ -1,11 +1,15 @@
-#include "Physics.hpp"
-
+// c/c++ stdlib
 #include <algorithm>
 #include <cmath>
 #include <vector>
 
-#include "Camera.hpp"
+// glm
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
 
+// voxel engine
+#include "Physics.hpp"
+#include "Camera.hpp"
 namespace {
 bool BlockIntersectsAabb(const glm::ivec3& blockPos, const Physics::AABB& aabb) {
     const glm::vec3 blockMin = glm::vec3(blockPos) - glm::vec3(0.5f);

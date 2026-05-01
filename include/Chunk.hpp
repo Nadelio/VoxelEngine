@@ -3,7 +3,6 @@
 #include <array>
 #include <cstdint>
 #include <functional>
-#include <concepts>
 
 #include <glm/glm.hpp>
 #include <SDL3/SDL_opengl.h>
@@ -39,7 +38,7 @@ public:
     void DrawWireframe() const;
 
     // Iterate every set block: callback(localX, localY, localZ, blockID)
-    template<std::invocable<int,int,int,uint32_t> Ft>
+    template<typename Ft>
     void ForEachBlock(const Ft& callback) const{
         for (int lx = 0; lx < kSize; ++lx)
         for (int ly = 0; ly < kSize; ++ly)

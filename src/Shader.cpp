@@ -22,8 +22,8 @@ namespace {
     PFNGLGETUNIFORMLOCATIONPROC pglGetUniformLocation = nullptr;
     PFNGLUNIFORMMATRIX4FVPROC pglUniformMatrix4fv = nullptr;
     PFNGLUNIFORM1IPROC pglUniform1i = nullptr;
-    PFNGLUNIFORM4FPROC pglUniform4f = nullptr;
     PFNGLUNIFORM2FPROC pglUniform2f = nullptr;
+    PFNGLUNIFORM4FPROC pglUniform4f = nullptr;
 
     bool gLoaded = false;
 
@@ -60,8 +60,8 @@ bool Shader::LoadOpenGLFunctions() {
     && (pglGetUniformLocation = GLProc<PFNGLGETUNIFORMLOCATIONPROC>("glGetUniformLocation"))
     && (pglUniformMatrix4fv = GLProc<PFNGLUNIFORMMATRIX4FVPROC>("glUniformMatrix4fv"))
     && (pglUniform1i = GLProc<PFNGLUNIFORM1IPROC>("glUniform1i"))
-    && (pglUniform4f = GLProc<PFNGLUNIFORM4FPROC>("glUniform4f"))
     && (pglUniform2f = GLProc<PFNGLUNIFORM2FPROC>("glUniform2f"))
+    && (pglUniform4f = GLProc<PFNGLUNIFORM4FPROC>("glUniform4f"))
     );
 
     return gLoaded;
@@ -182,8 +182,6 @@ void Shader::SetInt(const char* name, int value) const {
 
 void Shader::SetVec4(const char* name, float x, float y, float z, float w) const {
     assert(pglGetUniformLocation && pglUniform4f && program_ != 0);
-        return;
-    }
 
     const GLint loc = pglGetUniformLocation(program_, name);
     pglUniform4f(loc, x, y, z, w);

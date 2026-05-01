@@ -13,10 +13,6 @@ glm::vec3 Camera::Forward() const {
     return glm::normalize(f);
 }
 
-glm::vec3 Camera::HorizontalForward() const {
-    return {std::cos(yawRadians), 0.0f, std::sin(yawRadians) };
-}
-
 glm::mat4 Camera::View() const {
     return glm::lookAt(position, position + Forward(), glm::vec3(0.0f, 1.0f, 0.0f));
 }
@@ -24,9 +20,11 @@ glm::mat4 Camera::View() const {
 void Camera::UpdateFromKeyboard(const bool* keys, float deltaSeconds) {
     const float moveSpeed = 2.5f * deltaSeconds;
 
-    glm::vec3 forward = HorizontalForward();
-
-    const glm::vec3 right = glm::cross(forward, glm::vec3(0.0f, 1.0f, 0.0f));
+    // keep this to prevent perspective shenanigans
+    glm::vec3 forward = Forward();
+    forward.y = 0.0f;
+    forward = glm::normalize(forward);
+    const glm::vec3 right = glm::normalize(glm::cross(forward, glm::vec3(0.0f, 1.0f, 0.0f)));
 
     if (keys[SDL_SCANCODE_W]) position += forward * moveSpeed;
     if (keys[SDL_SCANCODE_S]) position -= forward * moveSpeed;

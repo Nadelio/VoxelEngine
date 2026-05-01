@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+include(FetchContent)
+
 if(DEFINED ENV{HOME} AND NOT "$ENV{HOME}" STREQUAL "")
     set(VOXEL_USER_HOME "$ENV{HOME}")
 elseif(WIN32 AND DEFINED ENV{USERPROFILE} AND NOT "$ENV{USERPROFILE}" STREQUAL "")
@@ -106,6 +108,41 @@ if(NOT EXISTS "${STB_ROOT}/stb_image.h")
     message(FATAL_ERROR "stb_image.h not found at '${STB_ROOT}'.")
 endif()
 
+FetchContent_Declare(
+    imgui_src
+    URL https://github.com/ocornut/imgui/archive/refs/tags/v1.92.7.zip
+)
+FetchContent_MakeAvailable(imgui_src)
+
+set(IMGUI_REQUIRED_SOURCES
+    "${imgui_src_SOURCE_DIR}/imgui.cpp"
+    "${imgui_src_SOURCE_DIR}/imgui_draw.cpp"
+    "${imgui_src_SOURCE_DIR}/imgui_tables.cpp"
+    "${imgui_src_SOURCE_DIR}/imgui_widgets.cpp"
+    "${imgui_src_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp"
+    "${imgui_src_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp"
+)
+
+foreach(IMGUI_SOURCE IN LISTS IMGUI_REQUIRED_SOURCES)
+    if(NOT EXISTS "${IMGUI_SOURCE}")
+        message(FATAL_ERROR "Missing Dear ImGui source file: ${IMGUI_SOURCE}")
+    endif()
+endforeach()
+
+add_library(imgui STATIC
+    ${IMGUI_REQUIRED_SOURCES}
+)
+
+target_include_directories(imgui PUBLIC
+    "${imgui_src_SOURCE_DIR}"
+    "${imgui_src_SOURCE_DIR}/backends"
+)
+
+target_link_libraries(imgui PUBLIC
+    ${SDL3_LINK_TARGET}
+    OpenGL::GL
+)
+
 target_include_directories(VoxelEngine PRIVATE
     include
     ${GLM_ROOT}
@@ -113,6 +150,7 @@ target_include_directories(VoxelEngine PRIVATE
 )
 
 target_link_libraries(VoxelEngine PRIVATE ${SDL3_LINK_TARGET} OpenGL::GL)
+target_link_libraries(VoxelEngine PRIVATE imgui)
 
 if(WIN32)
     set(SDL3_RUNTIME_DLL "${VOXEL_LIBRARIES_ROOT}/SDL/SDL3.dll" CACHE FILEPATH "Path to SDL3.dll for standalone/runtime copy")
