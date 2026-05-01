@@ -9,7 +9,7 @@ Here are a few constraints and some extra information you will need to help out!
 - CMake
 - Ninja
 - OpenGL 3.3 Support
-- GLAD (included in [include/](include/))
+- GLAD (included in [include/](include/) and [src/](src/))
 - SDL3 Runtime and Dev Kit (this should be handled by [CMakeLists.txt](CMakeLists.txt))
 - GLM 1.0.3
 - Dear ImGUI 1.92.7
@@ -28,6 +28,8 @@ cmake --build build -j
 - Stick to C++ naming convention
 - Add doc comments to `.hpp` and `.h` files 
     - This helps when needing to reference your code later on without needing to interpret your code directly
+- While preferred, it is not necessary to comment code in `.cpp` or `.c` files
+    - UNLESS there isn't a matching `.hpp` or `.h` file for it, then please document the code :pray:
 - Local compilation needs to output no errors or warnings before PRs will be merged
     - Compilation checks also need to succeed with the `master` branch Github Actions
 - Avoid adding dependencies without consulting me first

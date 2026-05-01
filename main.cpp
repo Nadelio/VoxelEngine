@@ -17,6 +17,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/norm.hpp>
 
 // voxel engine
 #include "AtlasTexture.hpp"
@@ -147,7 +148,7 @@ int main() {
 		quit(1);
 	}
 
-	managed_ptr<SDL_GLContext, SDL_GL_DestroyContext> glContext{SDL_GL_CreateContext(window)};
+	managed_ptr<SDL_GLContext, SDL_GL_DestroyContext> glContext{SDL_GL_CreateContext(window.get())};
 	if(!glContext) {
 		std::fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
 		quit(1);

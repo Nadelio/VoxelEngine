@@ -1,11 +1,11 @@
 #include "Physics.hpp"
+#include "Camera.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <vector>
 
-#include "Camera.hpp"
-
+#include <glm/gtx/norm.hpp>
 namespace {
 bool BlockIntersectsAabb(const glm::ivec3& blockPos, const Physics::AABB& aabb) {
     const glm::vec3 blockMin = glm::vec3(blockPos) - glm::vec3(0.5f);
