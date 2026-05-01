@@ -444,7 +444,7 @@ int main() {
 		if(keys[SDL_SCANCODE_S]) moveDir -= forward;
 		if(keys[SDL_SCANCODE_D]) moveDir += right;
 		if(keys[SDL_SCANCODE_A]) moveDir -= right;
-		if(glm::length(moveDir) > 0.0001f) {
+		if(glm::length2(moveDir) > 0.0000001f) {
 			moveDir = glm::normalize(moveDir);
 		}
 		const glm::vec3 desiredHorizontalVelocity = moveDir * physicsConstants.moveSpeed;

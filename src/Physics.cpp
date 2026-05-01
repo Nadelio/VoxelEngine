@@ -145,7 +145,7 @@ void Physics::StepEntityEuler(Entity& entity,
     }
     glm::vec2 current2D(entity.velocity.x, entity.velocity.z);
 
-    if (glm::length(desired2D) > 0.0001f) {
+    if (glm::length2(desired2D) > 0.0000001f) {
         const glm::vec2 diff    = desired2D - current2D;
         const float     diffLen = glm::length(diff);
         const float     step    = constants.acceleration * deltaSeconds;
@@ -279,7 +279,7 @@ bool Physics::CanPlaceBlockAt(const Entity& entity,
 
     if (IntersectsWorld(entityAabb)) {
         glm::vec3 toPlace = glm::vec3(placePos) - entity.position;
-        if (glm::length(toPlace) > 0.0001f) {
+        if (glm::length2(toPlace) > 0.0000001f) {
             toPlace = glm::normalize(toPlace);
             const glm::vec3 forward = glm::normalize(camera.Forward());
             if (glm::dot(forward, toPlace) < 0.0f) {
