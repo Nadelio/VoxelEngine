@@ -107,8 +107,8 @@ namespace {
 		return true;
 	}
 	
-	template<typename T,auto delfn> requires(std::is_pointer_v<T>)
-	using managed_ptr = std::unique_ptr<std::remove_pointer_t<T>, decltype([](T handle){ if(handle) delfn(handle); })>;
+	template<typename T,auto delfn>
+	using managed_ptr = std::unique_ptr<std::remove_pointer_t<std::enable_if_t<std::is_pointer_v<T>,T>>, decltype([](T handle){ if(handle) delfn(handle); })>;
 
 	[[noreturn]] void quit(int code){
 		SDL_Quit();

@@ -4,7 +4,6 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
-#include <concepts>
 
 #include <glm/glm.hpp>
 
@@ -98,7 +97,7 @@ private:
     static glm::ivec3 ChunkCoord(glm::ivec3 worldPos);
     static glm::ivec3 LocalPos(glm::ivec3 worldPos, glm::ivec3 chunkCoord);
 
-    template<std::invocable<const glm::ivec3&,uint32_t> Ft>
+    template<typename Ft>
     void ForEachBlock(const Ft& callback) const{
         for (const auto& [coord, chunk] : chunks_) {
             const glm::ivec3 origin = coord * Chunk::kSize;
