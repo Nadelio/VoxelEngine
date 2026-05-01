@@ -182,8 +182,6 @@ void Shader::SetInt(const char* name, int value) const {
 
 void Shader::SetVec4(const char* name, float x, float y, float z, float w) const {
     assert(pglGetUniformLocation && pglUniform4f && program_ != 0);
-        return;
-    }
 
     const GLint loc = pglGetUniformLocation(program_, name);
     pglUniform4f(loc, x, y, z, w);
