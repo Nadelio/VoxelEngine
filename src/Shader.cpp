@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <cassert>
 
 namespace {
     PFNGLCREATESHADERPROC pglCreateShader = nullptr;
@@ -170,21 +171,21 @@ void Shader::Use() const {
 }
 
 void Shader::SetMat4(const char* name, const float* matrix) const {
-    if (!pglGetUniformLocation || !pglUniformMatrix4fv || program_ == 0) return;
+    assert(pglGetUniformLocation && pglUniformMatrix4fv && program_ != 0);
 
     const GLint loc = pglGetUniformLocation(program_, name);
     pglUniformMatrix4fv(loc, 1, GL_FALSE, matrix);
 }
 
 void Shader::SetInt(const char* name, int value) const {
-    if (!pglGetUniformLocation || !pglUniform1i || program_ == 0) return;
+    assert(pglGetUniformLocation && pglUniform1i && program_ != 0);
 
     const GLint loc = pglGetUniformLocation(program_, name);
     pglUniform1i(loc, value);
 }
 
 void Shader::SetVec4(const char* name, float x, float y, float z, float w) const {
-    if (!pglGetUniformLocation || !pglUniform4f || program_ == 0) return;
+    assert(pglGetUniformLocation && pglUniform4f && program_ != 0);
         return;
     }
 
@@ -193,7 +194,7 @@ void Shader::SetVec4(const char* name, float x, float y, float z, float w) const
 }
 
 void Shader::SetVec2(const char* name, float x, float y) const {
-    if (!pglGetUniformLocation || !pglUniform2f || program_ == 0) return;
+    assert(pglGetUniformLocation && pglUniform2f && program_ != 0);
 
     const GLint loc = pglGetUniformLocation(program_, name);
     pglUniform2f(loc, x, y);
