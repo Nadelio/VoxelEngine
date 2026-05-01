@@ -320,6 +320,8 @@ int main() {
 	player.position = camera.position;
 	physics.teleportTo(player, {0.5f, 3.0f, 0.5f}, &camera);
 
+	int winWidth = 0;
+	int winHeight = 0;
 	// main loop
 	while(running) {
 		float mouseDeltaX = 0.0f;
@@ -425,6 +427,11 @@ int main() {
 				mouseDeltaX += event.motion.xrel;
 				mouseDeltaY += event.motion.yrel;
 			}
+			if(event.type == SDL_EVENT_WINDOW_RESIZED) {
+				winWidth = event.window.data1;
+				winHeight = event.window.data2;
+				glViewport(0, 0, winWidth, winHeight);
+			}
 		}
 
 		camera.UpdateFromMouseDelta(mouseDeltaX, mouseDeltaY);
@@ -466,19 +473,12 @@ int main() {
 
 		camera.position = player.position;
 
-
-		// window resizing
-		int width = 0;
-		int height = 0;
-		SDL_GetWindowSize(window.get(), &width, &height);
-		glViewport(0, 0, width, height);
-
 		// bg color
 		glClearColor(0.08f, 0.10f, 0.14f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// projection stuff
-		const float aspect = (height > 0) ? static_cast<float>(width) / static_cast<float>(height) : 1.0f;
+		const float aspect = (winHeight > 0) ? static_cast<float>(winWidth) / static_cast<float>(winHeight) : 1.0f;
 		const glm::mat4 projection = glm::perspective(glm::radians(60.0f), aspect, 0.1f, 200.0f);
 		const glm::mat4 view = camera.View();
 
@@ -496,7 +496,7 @@ int main() {
 
 		// more debug
 		if(debug_view) {
-			debugOverlay.DrawFps(displayedFps, width, height);
+			debugOverlay.DrawFps(displayedFps, winWidth, winHeight);
 			if(debug_wireframe || debug_wireframe_only) {
 				grid.DrawWireframe(wireframeShader, projection, view);
 			}
@@ -518,13 +518,13 @@ int main() {
 				} else {
 					oss << "NO BLOCK SEEN";
 				}
-				debugOverlay.DrawText(oss.str(), 16.0f, 44.0f, 4.0f, width, height);
+				debugOverlay.DrawText(oss.str(), 16.0f, 44.0f, 4.0f, winWidth, winHeight);
 			}
 
 			if(debug_stance) {
 				std::ostringstream oss;
 				oss << "CURRENT STANCE: " << player.getPosture();
-				debugOverlay.DrawText(oss.str(), 16.0f, 72.0f, 4.0f, width, height);
+				debugOverlay.DrawText(oss.str(), 16.0f, 72.0f, 4.0f, winWidth, winHeight);
 			}
 
 			if(debug_velocity) {
@@ -532,12 +532,12 @@ int main() {
 				oss << "VELOCITY: " << player.velocity.x 
 					<< " " <<  player.velocity.y 
 					<< " " << player.velocity.z;
-				debugOverlay.DrawText(oss.str(), 16.0f, 100.0f, 4.0, width, height);
+				debugOverlay.DrawText(oss.str(), 16.0f, 100.0f, 4.0, winWidth, winHeight);
 			}
 		}
 
 		// UI
-		hotbar.Draw(blockRegistry, width, height);
+		hotbar.Draw(blockRegistry, winWidth, winHeight);
 
 		// swap
 		SDL_GL_SwapWindow(window.get());
