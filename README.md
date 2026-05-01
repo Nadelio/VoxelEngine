@@ -15,14 +15,18 @@ Not today tho
 ## AI Usage Disclaimer
 I did use Copilot for the `CMakeLists.txt` and `main.yml` files (mainly because IDK the first thing about either).\
 Copilot didn't touch the rest of my code, I did ask it questions on how to do XYZ, but it never generated code for me.\
-***All code is written by me, someone who has never written C++ before and is generally not the best programmer ever, if there are security or memory issues, it is because of my dumbass. Please create an issue. Thanks <3***
+***All code is written by me, someone who has never written C++ before and is generally not the best programmer ever, if there are security or memory issues, it is because of my dumbass. Please create an issue. Thanks <3***\
+Update: me (the dumbass) and contributors (<3)*
+
+## Contributors
+- [marralesfios](https://github.com/marralesfios)
 
 ## Dependencies
-- OpenGL
+- OpenGL 3.3
 - SDL3 (both the runtime and the dev kit)
 - GLM 1.0.3
-- stb_image
-- ImGUI
+- stb_image.h 2.30
+- Dear ImGUI 1.92.7
 - C++17
 - Clang compiler (recommended, but not necessary)
 
