@@ -36,10 +36,28 @@
 TODO:
 - Refactor UI to use Dear ImGUI
 	- Reformat debug overlay to have block data span multiple lines instead of a single long line
-- Terrain Generation
-	- Saving maps to file
 - Rendering
-	- [BUG] Greedy meshing doesn't run every frame/tick
+	- [BUG] Greedy meshing doesn't run every frame/tick, so wireframe view doesn't update all the time (placing/removing blocks doesn't update greedy mesh immediately)
+- Formalize data format
+	- numeric ranges (n..m)
+	- typed arrays (<type>[...])
+	- strings ("...")
+	- integers
+	- floats
+	- booleans
+	- identifiers ([A-Za-z]+)
+	- key-value pairs ({ <key> : <value> })
+- Terrain Generation
+	- Saving maps to file (name.world)
+		- need to create compact data format for world save files
+			- `<blockID> <position> <block instance data>` maybe?
+	- Is data driven (external data files) to determine terrain generation
+	- Utilizes the blocks.data information
+		- Add terrain generation tags to each block to help determine where they should be used in generation
+			- Temperature (float range)
+			- Elevation (integer range)
+			- World Depth (integer range)
+			- Biome (string array)
 */
 
 using namespace std::literals::string_view_literals;
@@ -176,7 +194,6 @@ int main() {
 	}
 
 	// grab all the assets
-	// TODO: use std::filesystem::path
 	const std::string vertShaderPath = ResolveAssetPath("assets/shaders/voxel.vert"sv);
 	const std::string fragShaderPath = ResolveAssetPath("assets/shaders/voxel.frag"sv);
 	const std::string uiVertShaderPath = ResolveAssetPath("assets/shaders/ui.vert"sv);
@@ -186,6 +203,7 @@ int main() {
 	const std::string hotbarVertShaderPath = ResolveAssetPath("assets/shaders/hotbar.vert"sv);
 	const std::string hotbarFragShaderPath = ResolveAssetPath("assets/shaders/hotbar.frag"sv);
 	const std::string blockAtlasPNGPath = ResolveAssetPath("assets/block_atlas.png"sv);
+	const std::string itemAtlasPNGPath = ResolveAssetPath("assets/item_atlas.png"sv);
 	const std::string physicsConstantsPath = ResolveAssetPath("assets/data/physics_constants.data"sv);
 	const std::string blocksDataPath = ResolveAssetPath("assets/data/blocks.data"sv);
 
@@ -207,11 +225,19 @@ int main() {
 		quit(1);
 	}
 
-	// init blockAtlas
+	// init block atlas
 	AtlasTexture blockAtlas;
 	if(!blockAtlas.LoadFromFile(blockAtlasPNGPath)) {
 		std::fprintf(stderr, "Tried block atlas PNG at: %s\n", blockAtlasPNGPath.c_str());
 		std::fprintf(stderr, "Block atlas load failed. Add assets/block_atlas.png.\n");
+		quit(1);
+	}
+
+	// init item atlas
+	AtlasTexture itemAtlas;
+	if(!itemAtlas.LoadFromFile(itemAtlasPNGPath)) {
+		std::fprintf(stderr, "Tried item atlas PNG at: %s\n", itemAtlasPNGPath.c_str());
+		std::fprintf(stderr, "Item atlas load failed. Add assets/item_atlas.png.\n");
 		quit(1);
 	}
 
@@ -239,7 +265,7 @@ int main() {
 		std::fprintf(stderr, "Warning: could not load '%s', using defaults.\n", physicsConstantsPath.c_str());
 	}
 
-	// block IDs (must match blocks.data)
+	// block IDs (used for convienence, will change when implementing terrain generator)
 	enum BLOCKS { GRASS = 0, DIRT = 1, STONE = 2, SAND = 3 };
 
 	// init block registry from blocks.data
