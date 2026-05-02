@@ -185,7 +185,7 @@ int main() {
 	const std::string wireframeFragShaderPath = ResolveAssetPath("assets/shaders/wireframe.frag"sv);
 	const std::string hotbarVertShaderPath = ResolveAssetPath("assets/shaders/hotbar.vert"sv);
 	const std::string hotbarFragShaderPath = ResolveAssetPath("assets/shaders/hotbar.frag"sv);
-	const std::string atlasPNGPath = ResolveAssetPath("assets/block_atlas.png"sv);
+	const std::string blockAtlasPNGPath = ResolveAssetPath("assets/block_atlas.png"sv);
 	const std::string physicsConstantsPath = ResolveAssetPath("assets/data/physics_constants.data"sv);
 	const std::string blocksDataPath = ResolveAssetPath("assets/data/blocks.data"sv);
 
@@ -207,11 +207,11 @@ int main() {
 		quit(1);
 	}
 
-	// init atlas
-	AtlasTexture atlas;
-	if(!atlas.LoadFromFile(atlasPNGPath)) {
-		std::fprintf(stderr, "Tried atlas PNG at: %s\n", atlasPNGPath.c_str());
-		std::fprintf(stderr, "Atlas load failed. Add assets/atlas.png.\n");
+	// init blockAtlas
+	AtlasTexture blockAtlas;
+	if(!blockAtlas.LoadFromFile(blockAtlasPNGPath)) {
+		std::fprintf(stderr, "Tried block atlas PNG at: %s\n", blockAtlasPNGPath.c_str());
+		std::fprintf(stderr, "Block atlas load failed. Add assets/block_atlas.png.\n");
 		quit(1);
 	}
 
@@ -244,7 +244,7 @@ int main() {
 
 	// init block registry from blocks.data
 	BlockRegistry blockRegistry;
-	if(!LoadBlocks(blocksDataPath, &atlas, blockRegistry)) {
+	if(!LoadBlocks(blocksDataPath, &blockAtlas, blockRegistry)) {
 		std::fprintf(stderr, "Tried blocks.data at: %s\n", blocksDataPath.c_str());
 		std::fprintf(stderr, "Block data load failed.\n");
 		quit(1);
@@ -414,7 +414,7 @@ int main() {
 						}
 						// Hot-reload blocks
 						blockRegistry.Clear();
-						if(LoadBlocks(blocksDataPath, &atlas, blockRegistry)) {
+						if(LoadBlocks(blocksDataPath, &blockAtlas, blockRegistry)) {
 							grid.RebuildVisibility();
 							std::fprintf(stderr, "Hot-reloaded blocks.data\n");
 						} else {
@@ -497,14 +497,14 @@ int main() {
 
 		// debug
 		if(!(debug_view && debug_wireframe_only)) {
-			grid.Draw(defaultShader, atlas, projection, view);
+			grid.Draw(defaultShader, blockAtlas, projection, view);
 
 			// Render sand blocks that are currently mid-fall at their float positions.
 			std::vector<Grid::FloatBlock> fallingVisual;
 			for (const Physics::FallingBlock& fb : physics.GetFallingBlocks()) {
 				fallingVisual.push_back({fb.pos, fb.blockID});
 			}
-			grid.DrawFloatBlocks(fallingVisual, defaultShader, atlas, projection, view);
+			grid.DrawFloatBlocks(fallingVisual, defaultShader, blockAtlas, projection, view);
 		}
 
 		// more debug
