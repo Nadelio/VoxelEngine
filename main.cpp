@@ -45,7 +45,7 @@ TODO:
 	- integers
 	- floats
 	- booleans
-	- identifiers ([A-Za-z]+)
+	- tags/identifiers ([A-Za-z]+)
 	- key-value pairs ({ <key> : <value> })
 - Terrain Generation
 	- Saving maps to file (name.world)
