@@ -25,6 +25,7 @@ Update: me (the dumbass) and contributors (<3)*
 - C++17
 - Clang compiler (recommended, but not necessary)
 - OpenGL 3.3
+- GLAD (included in repository)
 - SDL3 (both the runtime and the dev kit, *should* be handled by [CMakeLists.txt](CMakeLists.txt))
 - GLM 1.0.3
 - stb_image.h 2.30
