@@ -185,8 +185,7 @@ int main() {
 	const std::string wireframeFragShaderPath = ResolveAssetPath("assets/shaders/wireframe.frag"sv);
 	const std::string hotbarVertShaderPath = ResolveAssetPath("assets/shaders/hotbar.vert"sv);
 	const std::string hotbarFragShaderPath = ResolveAssetPath("assets/shaders/hotbar.frag"sv);
-	const std::string atlasPngPath = ResolveAssetPath("assets/atlas.png"sv);
-	const std::string atlasBmpPath = ResolveAssetPath("assets/atlas.bmp"sv); // NOT CURRENTLY USED
+	const std::string atlasPNGPath = ResolveAssetPath("assets/block_atlas.png"sv);
 	const std::string physicsConstantsPath = ResolveAssetPath("assets/data/physics_constants.data"sv);
 	const std::string blocksDataPath = ResolveAssetPath("assets/data/blocks.data"sv);
 
@@ -210,10 +209,9 @@ int main() {
 
 	// init atlas
 	AtlasTexture atlas;
-	if(!atlas.LoadFromFile(atlasPngPath) && !atlas.LoadFromFile(atlasBmpPath)) {
-		std::fprintf(stderr, "Tried atlas PNG at: %s\n", atlasPngPath.c_str());
-		std::fprintf(stderr, "Tried atlas BMP at: %s\n", atlasBmpPath.c_str());
-		std::fprintf(stderr, "Atlas load failed. Add assets/atlas.png or assets/atlas.bmp.\n");
+	if(!atlas.LoadFromFile(atlasPNGPath)) {
+		std::fprintf(stderr, "Tried atlas PNG at: %s\n", atlasPNGPath.c_str());
+		std::fprintf(stderr, "Atlas load failed. Add assets/atlas.png.\n");
 		quit(1);
 	}
 
