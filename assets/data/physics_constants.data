@@ -1,22 +1,19 @@
 # Physics Constants
-# Format: key value
-# Lines starting with '#' are comments.
-
-gravity 21.0
-jump_speed 7.0
-move_speed 4.5
-crouch_slowdown 2.0
-prone_slowdown 4.0
-air_resistance 8.0
-acceleration 30.0
-max_velocity 6.0
-ground_friction 15.0f
-falling_block_fall_speed 5.0
+gravity                  : 21.0
+jump_speed               : 7.0
+move_speed               : 4.5
+crouch_slowdown          : 2.0
+prone_slowdown           : 4.0
+air_resistance           : 8.0
+acceleration             : 30.0
+max_velocity             : 6.0
+ground_friction          : 15.0
+falling_block_fall_speed : 5.0
 
 # Posture dimensions (height = total entity height, eye_from_feet = camera offset above feet)
-stand_height 1.50
-stand_eye_from_feet 1.35
-crouch_height 1.25
-crouch_eye_from_feet 1.15
-crawl_height 0.80
-crawl_eye_from_feet 0.70
+stand_height         : 1.50
+stand_eye_from_feet  : 1.35
+crouch_height        : 1.25
+crouch_eye_from_feet : 1.15
+crawl_height         : 0.80
+crawl_eye_from_feet  : 0.70

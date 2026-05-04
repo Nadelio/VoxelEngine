@@ -1,9 +1,13 @@
-# Block Data
-# Format: block <id> <name> <affectedByGravity> <front_x> <front_y> <back_x> <back_y> <left_x> <left_y> <right_x> <right_y> <top_x> <top_y> <bottom_x> <bottom_y>
+# Format:
+# block : { 
+#   id : <int>, name : "<str>", gravity : <bool>,
+#   front : int[x, y], back : int[x, y], left : int[x, y],
+#   right : int[x, y], top : int[x, y], bottom : int[x, y]
+# }
 # Tile coordinates refer to atlas grid positions (column, row), 0-indexed from top-left.
-# Lines starting with '#' are comments.
 
-block 0 GRASS false 1 0 1 0 1 0 1 0 0 0 2 0
-block 1 DIRT false 2 0 2 0 2 0 2 0 2 0 2 0
-block 2 STONE false 0 1 0 1 0 1 0 1 0 1 0 1
-block 3 SAND true 1 1 1 1 1 1 1 1 1 1 1 1
+# Block Registry Data
+block : { id : 0, name : "GRASS", gravity : false, front : int[1, 0], back : int[1, 0], left : int[1, 0], right : int[1, 0], top : int[0, 0], bottom : int[2, 0] }
+block : { id : 1, name : "DIRT",  gravity : false, front : int[2, 0], back : int[2, 0], left : int[2, 0], right : int[2, 0], top : int[2, 0], bottom : int[2, 0] }
+block : { id : 2, name : "STONE", gravity : false, front : int[0, 1], back : int[0, 1], left : int[0, 1], right : int[0, 1], top : int[0, 1], bottom : int[0, 1] }
+block : { id : 3, name : "SAND",  gravity : true,  front : int[1, 1], back : int[1, 1], left : int[1, 1], right : int[1, 1], top : int[1, 1], bottom : int[1, 1] }

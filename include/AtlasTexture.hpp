@@ -17,8 +17,9 @@ public:
     bool LoadFromFile(const std::string& atlasPath);
     void Bind(GLenum textureUnit = GL_TEXTURE0) const;
 
-    int Width() const { return width_; }
-    int Height() const { return height_; }
+    int    Width()     const { return width_;   }
+    int    Height()    const { return height_;  }
+    GLuint TextureID() const { return texture_; }
 
     // Returns UVs in order: bl, br, tr, tl.
     std::array<float, 8> TileUV32(int tileX, int tileY) const;

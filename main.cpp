@@ -1,8 +1,6 @@
 // c/c++ stdlib
 #include <array>
 #include <cstdio>
-#include <fstream>
-#include <sstream>
 #include <string>
 #include <memory>
 #include <iostream>
@@ -20,9 +18,13 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/norm.hpp>
 
+// dear imgui
+#include <imgui.h>
+
 // voxel engine
 #include "AtlasTexture.hpp"
 #include "BlockRegistry.hpp"
+#include "DataFormat.hpp"
 #include "CubeMesh.hpp"
 #include "Grid.hpp"
 #include "Camera.hpp"
@@ -34,19 +36,8 @@
 
 /*
 TODO:
-- Refactor UI to use Dear ImGUI
-	- Reformat debug overlay to have block data span multiple lines instead of a single long line
 - Rendering
 	- [BUG] Greedy meshing doesn't run every frame/tick, so wireframe view doesn't update all the time (placing/removing blocks doesn't update greedy mesh immediately)
-- Formalize data format
-	- numeric ranges (n..m)
-	- typed arrays (<type>[...])
-	- strings ("...")
-	- integers
-	- floats
-	- booleans
-	- tags/identifiers ([A-Za-z]+)
-	- key-value pairs ({ <key> : <value> })
 - Terrain Generation
 	- Saving maps to file (name.world)
 		- need to create compact data format for world save files
@@ -58,6 +49,75 @@ TODO:
 			- Elevation (integer range)
 			- World Depth (integer range)
 			- Biome (string array)
+- Hand model
+	- Held block models
+	- Held item models
+	- Interaction animations
+		- Breaking block (swing hand)
+		- Placing block (swing hand)
+		- Picking block (point)
+- Player model
+	- Skins
+	- Capes
+	- Movement animations (first person and third person)
+		- Walking animation
+		- Sprinting animation
+		- Jumping animation
+		- Crouching animation
+		- Crawling animation
+- New blocks
+	- Water
+		- Fluids
+	- Wood
+		- Saplings
+			- Tree/crop growth
+		- Leaves
+			- Decay
+	- Clay
+- Survival mode
+	- Crafting
+		- Crafting table
+			- Block UI
+			- Block interaction
+	- Items
+		- Dropped item and block models
+		- Stone and Wood Tools
+			- Pickaxe
+			- Shovel
+			- Axe
+			- Hoe
+		- Food
+			- Dough
+				- Flour
+					- Bread
+						- Wheat
+							- Wheat seeds
+						- Furnace
+							- Block inventories
+							- Block processing
+				- Water
+					- Water container
+						- Clay
+						- Item inventories
+	- Hunger
+	- Thirst
+	- Health
+		- Damage sources
+			- Starvation
+			- Dehydration
+			- Drowning
+			- Suffocating
+			- Burning
+				- Fire block
+					- Blocks with no collision
+					- Blocks that place blocks (fire spreading)
+	- Mining
+	- Farming
+		- Use hoe to plow ground
+		- Right click to place sapling or wheat seeds
+		- Right click with dirt to cover
+		- Right click with filled clay bowl to water
+	
 */
 
 using namespace std::literals::string_view_literals;
@@ -91,35 +151,42 @@ namespace {
 	// Parses blocks.data and registers each block into registry.
 	// Returns false if the file cannot be opened or a registration fails.
 	bool LoadBlocks(const std::string& path, const AtlasTexture* atlas, BlockRegistry& registry) {
-		std::ifstream file(path);
-		if(!file.is_open()) {
-			return false;
-		}
+		const auto doc = DataFormat::ParseFile(path);
+		if(!doc) { return false; }
 
-		std::string line;
-		while(std::getline(file, line)) {
-			if(line.empty() || line[0] == '#') { continue; }
-			std::istringstream iss(line);
-			std::string keyword;
-			if(!(iss >> keyword) || keyword != "block") { continue; }
+		static constexpr std::array<const char*, 6> kFaceNames = {
+			"front", "back", "left", "right", "top", "bottom"
+		};
 
-			uint32_t id = 0;
-			std::string name;
-			std::string gravStr;
-			if(!(iss >> id >> name >> gravStr)) { continue; }
+		for(const auto& [key, val] : doc->entries) {
+			if(key != "block" || !val.IsObject()) { continue; }
+			const DataFormat::Object& obj = val.AsObject();
 
-			const bool affectedByGravity = (gravStr == "true");
+			const DataFormat::Value* idVal      = obj.Get("id");
+			const DataFormat::Value* nameVal    = obj.Get("name");
+			const DataFormat::Value* gravityVal = obj.Get("gravity");
+			if(!idVal || !nameVal || !gravityVal) { continue; }
+			if(!idVal->IsInt() || !nameVal->IsString() || !gravityVal->IsBool()) { continue; }
+
+			const uint32_t    id      = static_cast<uint32_t>(idVal->AsInt());
+			const std::string name    = nameVal->AsString();
+			const bool        gravity = gravityVal->AsBool();
 
 			FaceTileMap ftm{};
 			bool valid = true;
 			for(int i = 0; i < 6; ++i) {
-				int fx = 0, fy = 0;
-				if(!(iss >> fx >> fy)) { valid = false; break; }
-				ftm[i] = FaceTile{fx, fy};
+				const DataFormat::Value* faceVal = obj.Get(kFaceNames[i]);
+				if(!faceVal || !faceVal->IsArray()) { valid = false; break; }
+				const DataFormat::TypedArray& arr = faceVal->AsArray();
+				if(arr.elements.size() < 2) { valid = false; break; }
+				const DataFormat::Value& fx = *arr.elements[0];
+				const DataFormat::Value& fy = *arr.elements[1];
+				if(!fx.IsInt() || !fy.IsInt()) { valid = false; break; }
+				ftm[i] = FaceTile{static_cast<int>(fx.AsInt()), static_cast<int>(fy.AsInt())};
 			}
 			if(!valid) { continue; }
 
-			if(!registry.Register({id, name, ftm, atlas, affectedByGravity})) {
+			if(!registry.Register({id, name, ftm, atlas, gravity})) {
 				std::fprintf(stderr, "Block registration failed for ID %u (%s).\n", id, name.c_str());
 				return false;
 			}
@@ -151,8 +218,6 @@ namespace {
 int main() {
 
 	std::cout << "TODO:\n"
-			  << "- Refactor UI to use Dear ImGUI\n"
-			  << "\t- Reformat debug overlay to have block data span multiple lines instead of a single long line\n"
 			  << "- Terrain Generation\n"
 			  << "\t- Saving maps to file\n"
 			  << "- Rendering\n"
@@ -196,12 +261,8 @@ int main() {
 	// grab all the assets
 	const std::string vertShaderPath = ResolveAssetPath("assets/shaders/voxel.vert"sv);
 	const std::string fragShaderPath = ResolveAssetPath("assets/shaders/voxel.frag"sv);
-	const std::string uiVertShaderPath = ResolveAssetPath("assets/shaders/ui.vert"sv);
-	const std::string uiFragShaderPath = ResolveAssetPath("assets/shaders/ui.frag"sv);
 	const std::string wireframeVertShaderPath = ResolveAssetPath("assets/shaders/wireframe.vert"sv);
 	const std::string wireframeFragShaderPath = ResolveAssetPath("assets/shaders/wireframe.frag"sv);
-	const std::string hotbarVertShaderPath = ResolveAssetPath("assets/shaders/hotbar.vert"sv);
-	const std::string hotbarFragShaderPath = ResolveAssetPath("assets/shaders/hotbar.frag"sv);
 	const std::string blockAtlasPNGPath = ResolveAssetPath("assets/block_atlas.png"sv);
 	const std::string itemAtlasPNGPath = ResolveAssetPath("assets/item_atlas.png"sv);
 	const std::string physicsConstantsPath = ResolveAssetPath("assets/data/physics_constants.data"sv);
@@ -241,23 +302,15 @@ int main() {
 		quit(1);
 	}
 
-	// init debug UI
+	// init Dear ImGui debug overlay
 	DebugOverlay debugOverlay;
-	if(!debugOverlay.Initialize(uiVertShaderPath, uiFragShaderPath)) {
-		std::fprintf(stderr, "Tried UI vertex shader at: %s\n", uiVertShaderPath.c_str());
-		std::fprintf(stderr, "Tried UI fragment shader at: %s\n", uiFragShaderPath.c_str());
-		std::fprintf(stderr, "DebugOverlay initialization failed.\n");
+	if(!debugOverlay.Initialize(window.get(), glContext.get())) {
+		std::fprintf(stderr, "DebugOverlay (ImGui) initialization failed.\n");
 		quit(1);
 	}
 
 	// init hotbar
 	Hotbar hotbar;
-	if(!hotbar.Initialize(hotbarVertShaderPath, hotbarFragShaderPath)) {
-		std::fprintf(stderr, "Tried hotbar vertex shader at: %s\n", hotbarVertShaderPath.c_str());
-		std::fprintf(stderr, "Tried hotbar fragment shader at: %s\n", hotbarFragShaderPath.c_str());
-		std::fprintf(stderr, "Hotbar initialization failed.\n");
-		quit(1);
-	}
 
 	// load physics constants (use defaults if file not present)
 	PhysicsConstants physicsConstants;
@@ -377,6 +430,7 @@ int main() {
 		// handle player inputs
 		SDL_Event event;
 		while(SDL_PollEvent(&event)) {
+			debugOverlay.ProcessEvent(event);
 			if(event.type == SDL_EVENT_QUIT) {
 				goto stop_mainloop;
 			}
@@ -533,55 +587,61 @@ int main() {
 			grid.DrawFloatBlocks(fallingVisual, defaultShader, blockAtlas, projection, view);
 		}
 
-		// more debug
+		// debug overlay
+		debugOverlay.NewFrame();
 		if(debug_view) {
-			debugOverlay.DrawFps(displayedFps, winWidth, winHeight);
 			if(debug_wireframe || debug_wireframe_only) {
 				grid.DrawWireframe(wireframeShader, projection, view);
 			}
 			if(debug_looked_at_block) { grid.DrawLookedAtBlock(wireframeShader, camera, projection, view); }
 			if(debug_looked_at_face)  { grid.DrawLookedAtFace(wireframeShader, camera, projection, view); }
 
+			ImGui::SetNextWindowPos(ImVec2{10.0f, 10.0f}, ImGuiCond_Always);
+			ImGui::SetNextWindowBgAlpha(0.6f);
+			ImGui::Begin("Debug", nullptr,
+				ImGuiWindowFlags_NoDecoration     |
+				ImGuiWindowFlags_AlwaysAutoResize |
+				ImGuiWindowFlags_NoSavedSettings  |
+				ImGuiWindowFlags_NoFocusOnAppearing |
+				ImGuiWindowFlags_NoNav            |
+				ImGuiWindowFlags_NoMove);
+
+			ImGui::Text("FPS: %d", displayedFps);
+
 			if(debug_looked_at_data) {
 				const Grid::LookedAtResult hit = grid.QueryLookedAt(camera);
-				std::ostringstream oss;
+				ImGui::Separator();
 				if(hit.hit) {
 					const char* const blockName = (hit.blockData != nullptr) ? hit.blockData->name.c_str() : "UNKNOWN";
-
-					oss << "CURRENT BLOCK POS: [" << hit.blockPos.x
-						<< " " << hit.blockPos.y
-						<< " " << hit.blockPos.z
-						<< "] FACE: " << hit.faceIndex
-						<< " NAME: " << blockName
-						<< " ID: " << hit.blockID;
+					ImGui::Text("Block Pos: [%d, %d, %d]", hit.blockPos.x, hit.blockPos.y, hit.blockPos.z);
+					ImGui::Text("Face:      %d", hit.faceIndex);
+					ImGui::Text("Name:      %s", blockName);
+					ImGui::Text("ID:        %u", static_cast<unsigned int>(hit.blockID));
 				} else {
-					oss << "NO BLOCK SEEN";
+					ImGui::TextDisabled("No block in view");
 				}
-				debugOverlay.DrawText(oss.str(), 16.0f, 44.0f, 4.0f, winWidth, winHeight);
 			}
 
 			if(debug_stance) {
-				std::ostringstream oss;
-				oss << "CURRENT STANCE: " << player.getPosture();
-				debugOverlay.DrawText(oss.str(), 16.0f, 72.0f, 4.0f, winWidth, winHeight);
+				ImGui::Separator();
+				ImGui::Text("Stance: %s", player.getPosture());
 			}
 
 			if(debug_velocity) {
-				std::ostringstream oss;
-				oss << "VELOCITY: " << player.velocity.x 
-					<< " " <<  player.velocity.y 
-					<< " " << player.velocity.z;
-				debugOverlay.DrawText(oss.str(), 16.0f, 100.0f, 4.0, winWidth, winHeight);
+				ImGui::Separator();
+				ImGui::Text("Velocity: %.3f  %.3f  %.3f",
+					player.velocity.x, player.velocity.y, player.velocity.z);
 			}
-		}
 
-		// UI
+			ImGui::End();
+		}
 		hotbar.Draw(blockRegistry, winWidth, winHeight);
+		debugOverlay.Render();
 
 		// swap
 		SDL_GL_SwapWindow(window.get());
 	}
-	stop_mainloop:
+stop_mainloop:
 
 	// cleanup shared debug meshes created inside Grid.cpp while context is still alive.
 	Grid::ReleaseSharedGLResources();

@@ -86,15 +86,16 @@ endif()
 
 add_executable(VoxelEngine
     main.cpp
+    src/AtlasTexture.cpp
     src/Camera.cpp
     src/Chunk.cpp
     src/CubeMesh.cpp
+    src/DataFormat.cpp
     src/DebugOverlay.cpp
     src/Grid.cpp
     src/Hotbar.cpp
     src/Physics.cpp
     src/Shader.cpp
-    src/AtlasTexture.cpp
 )
 
 set(GLM_ROOT "${VOXEL_LIBRARIES_ROOT}/glm-1.0.3" CACHE PATH "Path to glm root folder")
