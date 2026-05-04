@@ -36,8 +36,6 @@
 
 /*
 TODO:
-- Rendering
-	- [BUG] Greedy meshing doesn't run every frame/tick, so wireframe view doesn't update all the time (placing/removing blocks doesn't update greedy mesh immediately)
 - Terrain Generation
 	- Saving maps to file (name.world)
 		- need to create compact data format for world save files
@@ -117,7 +115,15 @@ TODO:
 		- Right click to place sapling or wheat seeds
 		- Right click with dirt to cover
 		- Right click with filled clay bowl to water
-	
+- UI
+	- Add inventory texture
+	- Add hotbar texture
+	- Add crafting texture
+	- Add furnace texture
+	- Health, Hunger, Thirst UIs
+		- Two layers
+			- Empty hearts/hunger/thirst layer
+			- Full/Half hearts/hunger/thirst layer
 */
 
 using namespace std::literals::string_view_literals;
@@ -219,10 +225,8 @@ int main() {
 
 	std::cout << "TODO:\n"
 			  << "- Terrain Generation\n"
-			  << "\t- Saving maps to file\n"
-			  << "- Rendering\n"
-			  << "\t- [BUG] Greedy meshing doesn't run every frame/tick or wireframe only view doesn't update meshes every frame/tick\n";
-
+			  << "\t- Saving maps to file\n";
+	
 	// init SDL and OpenGL
 	if(!SDL_Init(SDL_INIT_VIDEO)) {
 		std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
