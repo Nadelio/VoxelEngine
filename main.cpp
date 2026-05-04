@@ -410,10 +410,11 @@ int main() {
 	const TerrainGen::Params terrainParams;
 	Grid grid(&blockRegistry);
 	TerrainGen::Generate(grid, blockRegistry, terrainParams);
-
+	int current_seed = terrainParams.seed;
+	
 	// build world save path (./worlds/<seed>.world)
 	const std::string worldSavePath = [&]() -> std::string {
-		const std::string filename = "worlds/" + std::to_string(terrainParams.seed) + ".world";
+		const std::string filename = "worlds/" + std::to_string(current_seed) + ".world";
 		if (const char* base = SDL_GetBasePath())
 			return std::string(base) + filename;
 		return filename;
@@ -672,14 +673,16 @@ int main() {
 			ImGui::SetNextWindowPos(ImVec2{10.0f, 10.0f}, ImGuiCond_Always);
 			ImGui::SetNextWindowBgAlpha(0.6f);
 			ImGui::Begin("Debug", nullptr,
-				ImGuiWindowFlags_NoDecoration     |
-				ImGuiWindowFlags_AlwaysAutoResize |
-				ImGuiWindowFlags_NoSavedSettings  |
+				ImGuiWindowFlags_NoDecoration       |
+				ImGuiWindowFlags_AlwaysAutoResize   |
+				ImGuiWindowFlags_NoSavedSettings    |
 				ImGuiWindowFlags_NoFocusOnAppearing |
-				ImGuiWindowFlags_NoNav            |
+				ImGuiWindowFlags_NoNav              |
 				ImGuiWindowFlags_NoMove);
 
 			ImGui::Text("FPS: %d", displayedFps);
+			ImGui::Separator();
+			ImGui::Text("Seed: %d", current_seed);
 
 			if(debug_looked_at_data) {
 				const Grid::LookedAtResult hit = grid.QueryLookedAt(camera);

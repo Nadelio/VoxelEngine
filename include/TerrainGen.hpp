@@ -8,7 +8,7 @@
 class TerrainGen {
 public:
     struct Params {
-        int seed = 0;
+        int seed = 0; // TODO: make this random unless custom seed given
 
         // Elevation algorithm (Noise Texture × Voronoi → Multiply → Square Root)
         // Scale controls feature frequency: feature size in blocks ≈ 1/scale.
