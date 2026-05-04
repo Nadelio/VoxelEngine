@@ -82,7 +82,7 @@ void Hotbar::Draw(const BlockRegistry& registry, int viewportW, int viewportH) c
                 const ImVec2 uv0{uv[6], uv[7]};
                 const ImVec2 uv1{uv[2], uv[3]};
                 ImGui::ImageButton(("##slot" + std::to_string(i)).c_str(),
-                    reinterpret_cast<ImTextureID>(static_cast<uintptr_t>(blockData->atlas->TextureID())),
+                    ImTextureRef(static_cast<ImTextureID>(blockData->atlas->TextureID())),
                     ImVec2{kIconSize, kIconSize}, uv0, uv1);
             } else {
                 ImGui::Button(("##slot" + std::to_string(i)).c_str(), ImVec2{kSlotSize, kSlotSize});
