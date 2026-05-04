@@ -279,7 +279,7 @@ namespace DataFormat {
                         TypedArray::ElemType elemType;
                         if      (name == "int")    elemType = TypedArray::ElemType::Int;
                         else if (name == "float")  elemType = TypedArray::ElemType::Float;
-                        else if (name == "string") elemType = TypedArray::ElemType::String;
+                        else if (name == "string" || name == "str") elemType = TypedArray::ElemType::String;
                         else if (name == "bool")   elemType = TypedArray::ElemType::Bool;
                         else if (name == "tag")    elemType = TypedArray::ElemType::Tag;
                         else {

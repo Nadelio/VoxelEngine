@@ -96,6 +96,8 @@ add_executable(VoxelEngine
     src/Hotbar.cpp
     src/Physics.cpp
     src/Shader.cpp
+    src/TerrainGen.cpp
+    src/WorldFile.cpp
 )
 
 set(GLM_ROOT "${VOXEL_LIBRARIES_ROOT}/glm-1.0.3" CACHE PATH "Path to glm root folder")

@@ -33,20 +33,43 @@
 #include "Shader.hpp"
 #include "DebugOverlay.hpp"
 #include "Hotbar.hpp"
+#include "TerrainGen.hpp"
+#include "WorldFile.hpp"
 
 /*
 TODO:
-- Terrain Generation
-	- Saving maps to file (name.world)
-		- need to create compact data format for world save files
-			- `<blockID> <position> <block instance data>` maybe?
-	- Is data driven (external data files) to determine terrain generation
-	- Utilizes the blocks.data information
-		- Add terrain generation tags to each block to help determine where they should be used in generation
-			- Temperature (float range)
-			- Elevation (integer range)
-			- World Depth (integer range)
-			- Biome (string array)
+- UI
+	- Main menu
+		- Worlds
+		- Settings
+		- Quit
+	- Pause menu
+		- Save and quit
+		- Controls
+			- Edit keybinds
+		- Texture pack
+			- Load custom block_atlas.png and/or item_atlas.png
+		- Resource pack
+			- Load custom assets folder
+		- Data pack
+			- Load custom assets/data folder
+	- Worlds menu
+		- Load world files
+			- World name
+			- World type (single biome, default, preset)
+			- Datapacks loaded?
+			- Custom seed?
+		- New world button
+		- Rename world button
+		- Delete world button
+	- New world menu
+		- Single biome?
+		- Presets
+			- Superflat
+			- Custom superflat
+		- Custom seed
+		- Data pack
+			- Load custom assets/data folder
 - Hand model
 	- Held block models
 	- Held item models
@@ -154,8 +177,6 @@ namespace {
 		return relativePath.string();
 	}
 
-	// Parses blocks.data and registers each block into registry.
-	// Returns false if the file cannot be opened or a registration fails.
 	bool LoadBlocks(const std::string& path, const AtlasTexture* atlas, BlockRegistry& registry) {
 		const auto doc = DataFormat::ParseFile(path);
 		if(!doc) { return false; }
@@ -163,6 +184,43 @@ namespace {
 		static constexpr std::array<const char*, 6> kFaceNames = {
 			"front", "back", "left", "right", "top", "bottom"
 		};
+
+		auto parseTerrain = [](const DataFormat::Object& obj) -> TerrainInfo {
+			TerrainInfo t;
+			if(const auto* v = obj.Get("temp"); v && v->IsFloatRange()) {
+				t.temperatureMin = static_cast<float>(v->AsFloatRange().lo);
+				t.temperatureMax = static_cast<float>(v->AsFloatRange().hi);
+			}
+			if(const auto* v = obj.Get("elevation"); v && v->IsIntRange()) {
+				t.elevationMin = static_cast<int>(v->AsIntRange().lo);
+				t.elevationMax = static_cast<int>(v->AsIntRange().hi);
+			}
+			if(const auto* v = obj.Get("depth"); v && v->IsIntRange()) {
+				t.depthMin = static_cast<int>(v->AsIntRange().lo);
+				t.depthMax = static_cast<int>(v->AsIntRange().hi);
+			}
+			if(const auto* v = obj.Get("biome")) {
+				if(v->IsArray()) {
+					for(const auto& elem : v->AsArray().elements) {
+						if(elem && elem->IsTag()) t.biomes.push_back(elem->AsTag().name);
+					}
+				}
+			} else {
+				t.biomes.push_back("all");
+			}
+			return t;
+		};
+
+		for(const auto& [key, val] : doc->entries) {
+			if(key != "group" || !val.IsObject()) { continue; }
+			const DataFormat::Object& obj = val.AsObject();
+			const DataFormat::Value* nameVal = obj.Get("name");
+			if(!nameVal || !nameVal->IsString()) { continue; }
+			BlockGroupData grp;
+			grp.name    = nameVal->AsString();
+			grp.terrain = parseTerrain(obj);
+			registry.RegisterGroup(grp);
+		}
 
 		for(const auto& [key, val] : doc->entries) {
 			if(key != "block" || !val.IsObject()) { continue; }
@@ -192,7 +250,22 @@ namespace {
 			}
 			if(!valid) { continue; }
 
-			if(!registry.Register({id, name, ftm, atlas, gravity})) {
+			BlockData blockDef;
+			blockDef.blockID           = id;
+			blockDef.name              = name;
+			blockDef.faceTiles         = ftm;
+			blockDef.atlas             = atlas;
+			blockDef.affectedByGravity = gravity;
+
+			if(const auto* v = obj.Get("group"); v && v->IsArray()) {
+				for(const auto& elem : v->AsArray().elements) {
+					if(elem && elem->IsTag()) blockDef.groups.push_back(elem->AsTag().name);
+				}
+			}
+
+			blockDef.terrain = parseTerrain(obj);
+
+			if(!registry.Register(blockDef)) {
 				std::fprintf(stderr, "Block registration failed for ID %u (%s).\n", id, name.c_str());
 				return false;
 			}
@@ -322,8 +395,8 @@ int main() {
 		std::fprintf(stderr, "Warning: could not load '%s', using defaults.\n", physicsConstantsPath.c_str());
 	}
 
-	// block IDs (used for convienence, will change when implementing terrain generator)
-	enum BLOCKS { GRASS = 0, DIRT = 1, STONE = 2, SAND = 3 };
+	// block IDs (used for hotbar initialisation)
+	enum BLOCKS { GRASS = 0, DIRT, STONE, ANDESITE, SAND };
 
 	// init block registry from blocks.data
 	BlockRegistry blockRegistry;
@@ -333,48 +406,25 @@ int main() {
 		quit(1);
 	}
 
-	// 5x5x2 flat platform at y = -1
+	// generate procedural terrain
+	const TerrainGen::Params terrainParams;
 	Grid grid(&blockRegistry);
+	TerrainGen::Generate(grid, blockRegistry, terrainParams);
 
-	// grass layer
-	for(int z = 0; z < 5; ++z) {
-		for(int x = 0; x < 5; ++x) {
-			if(!grid.AddBlock(x, 0, z, GRASS)) {
-				std::fprintf(stderr, "Grid::AddBlock<Grass> failed at (%d, 0, %d).\n", x, z);
-				quit(1);
-			}
-		}
-	}
- 
-	// dirt layer
-	for(int z = 0; z < 5; ++z) {
-		for(int x = 0; x < 5; ++x) {
-			if(!grid.AddBlock(x, -1, z, DIRT)) {
-				std::fprintf(stderr, "Grid::AddBlock<Dirt> failed at (%d, 1, %d).\n", x, z);
-				quit(1);
-			}
-		}
-	}
-
-	// stone layer
-	for(int z = 0; z < 5; ++z) {
-		for(int x = 0; x < 5; ++x) {
-			if(!grid.AddBlock(x, -2, z, STONE)) {
-				std::fprintf(stderr, "Grid::AddBlock<Stone> failed at (%d, 1, %d).\n", x, z);
-				quit(1);
-			}
-		}
-	}
-
-	// sand tower in center of the platform.
-	grid.AddBlock(2, 1, 2, SAND);
-	grid.AddBlock(2, 2, 2, SAND);
+	// build world save path (./worlds/<seed>.world)
+	const std::string worldSavePath = [&]() -> std::string {
+		const std::string filename = "worlds/" + std::to_string(terrainParams.seed) + ".world";
+		if (const char* base = SDL_GetBasePath())
+			return std::string(base) + filename;
+		return filename;
+	}();
 
 	// init hotbar
 	hotbar.SetSlot(0, GRASS);
 	hotbar.SetSlot(1, DIRT);
 	hotbar.SetSlot(2, STONE);
-	hotbar.SetSlot(3, SAND);
+	hotbar.SetSlot(3, ANDESITE);
+	hotbar.SetSlot(4, SAND);
 
 	// cull faces that are hidden between adjacent solid blocks.
 	grid.RebuildVisibility();
@@ -408,8 +458,9 @@ int main() {
 	int fpsFrameCount = 0;
 	int displayedFps = 0;
 	
-	// place player
-	physics.teleportTo(player, {0.5f, 3.0f, 0.5f}, &camera);
+	// place player above the generated terrain at the world origin
+	const float spawnY = static_cast<float>(TerrainGen::SampleSurfaceY(0.5f, 0.5f, terrainParams)) + 2.0f;
+	physics.teleportTo(player, {0.5f, spawnY, 0.5f}, &camera);
 
 	int winWidth = 0;
 	int winHeight = 0;
@@ -503,6 +554,24 @@ int main() {
 							std::fprintf(stderr, "Hot-reloaded blocks.data\n");
 						} else {
 							std::fprintf(stderr, "Warning: hot-reload failed for '%s'\n", blocksDataPath.c_str());
+						}
+					}
+					if(event.key.key == SDLK_E) {
+						WorldFile::Header wfh;
+						wfh.seed = terrainParams.seed;
+						if(WorldFile::Save(worldSavePath, wfh, grid)) {
+							std::fprintf(stderr, "World saved to: %s\n", worldSavePath.c_str());
+						} else {
+							std::fprintf(stderr, "Warning: world save failed for '%s'\n", worldSavePath.c_str());
+						}
+					}
+					if(event.key.key == SDLK_L) {
+						WorldFile::Header wfh;
+						if(WorldFile::Load(worldSavePath, wfh, grid)) {
+							grid.RebuildVisibility();
+							std::fprintf(stderr, "World loaded from: %s (seed %d)\n", worldSavePath.c_str(), wfh.seed);
+						} else {
+							std::fprintf(stderr, "Warning: world load failed for '%s'\n", worldSavePath.c_str());
 						}
 					}
 				} else {
