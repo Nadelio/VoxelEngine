@@ -271,6 +271,7 @@ bool Grid::AddBlock(int x, int y, int z, uint32_t blockID) {
         it = chunks_.emplace(cc, std::make_unique<Chunk>()).first;
     }
     it->second->SetBlock(lp.x, lp.y, lp.z, blockID);
+    it->second->MarkDirty();
     MarkNeighborChunksDirty(worldPos, cc, lp);
     return true;
 }
@@ -283,6 +284,7 @@ bool Grid::RemoveBlock(glm::ivec3 pos) {
     const glm::ivec3 lp = LocalPos(pos, cc);
     if (!it->second->RemoveBlock(lp.x, lp.y, lp.z)) return false;
 
+    it->second->MarkDirty();
     MarkNeighborChunksDirty(pos, cc, lp);
 
     if (it->second->IsEmpty()) {

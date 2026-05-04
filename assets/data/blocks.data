@@ -1,9 +1,31 @@
-# Block Data
-# Format: block <id> <name> <affectedByGravity> <front_x> <front_y> <back_x> <back_y> <left_x> <left_y> <right_x> <right_y> <top_x> <top_y> <bottom_x> <bottom_y>
-# Tile coordinates refer to atlas grid positions (column, row), 0-indexed from top-left.
-# Lines starting with '#' are comments.
+# Format:
+# block : { 
+#   id : <int>, # unique block id (used for referencing the block in crafting/smelting recipes)
+#   name : "<str>", # name of block in registry
+#   gravity : <bool>, # is the block affected by gravity?
+#   group : tag[...] # the block group(s) the block is a part of, defaults to `none` tag, if block group doesn't exist, default to `none` tag
+#   # texture mapping, atlas grid positions (column, row), 0-indexed from top-left
+#   front : int[x, y], back : int[x, y], left : int[x, y],
+#   right : int[x, y], top : int[x, y], bottom : int[x, y],
+#   # these can be excluded if in a block group that has terrain gen rules
+#   temp : min..max,
+#   elevation : min..max,
+#   depth : min..max,
+#   biome : tag[...] # the biomes the block is allowed in, defaults to `all` tag
+# }
 
-block 0 GRASS false 1 0 1 0 1 0 1 0 0 0 2 0
-block 1 DIRT false 2 0 2 0 2 0 2 0 2 0 2 0
-block 2 STONE false 0 1 0 1 0 1 0 1 0 1 0 1
-block 3 SAND true 1 1 1 1 1 1 1 1 1 1 1 1
+# Block Registry Data
+block : { id : 0, name : "GRASS", gravity : false, front : int[1, 0], back : int[1, 0], left : int[1, 0], right : int[1, 0], top : int[0, 0], bottom : int[2, 0], temp : -0.5..0.8, elevation : 0..255, depth : 0..0, biome : tag[plains, forest] }
+block : { id : 1, name : "DIRT",  gravity : false, front : int[2, 0], back : int[2, 0], left : int[2, 0], right : int[2, 0], top : int[2, 0], bottom : int[2, 0], temp : -1.0..1.0, elevation : -64..255, depth : 1..2, biome : tag[plains, forest] }
+block : { id : 2, name : "STONE", gravity : false, front : int[0, 1], back : int[0, 1], left : int[0, 1], right : int[0, 1], top : int[0, 1], bottom : int[0, 1], group : tag[STONE] }
+block : { id : 3, name : "ANDESITE", gravity : false, front : int[2, 1], back : int[2, 1], left : int[2, 1], right : int[2, 1], top : int[2, 1], bottom : int[2, 1], group : tag[STONE] }
+block : { id : 4, name : "SAND",  gravity : true,  front : int[1, 1], back : int[1, 1], left : int[1, 1], right : int[1, 1], top : int[1, 1], bottom : int[1, 1], temp : 0.2..1.0, elevation : -64..64,  depth : 0..1, biome : tag[desert] }
+
+# Block Groups Data
+group : {
+    name : "STONE",
+    temp : -1.0..1.0,       # all temperatures
+    elevation : -256..255,  # all elevations
+    depth : 0..255,         # all depths
+    biome : tag[all]        # all biomes
+}
