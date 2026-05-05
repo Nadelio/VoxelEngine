@@ -388,13 +388,13 @@ int main() {
 		SDL_GetWindowSize(window.get(), &winWidth, &winHeight);
 		glViewport(0, 0, winWidth, winHeight);
 
-		// scale ImGui proportionally to window height (900 px = 1x reference)
+		// scale UI based on window dimensions
 		if (winHeight > 0) {
 			static float prevUiScale = -1.0f;
 			const float uiScale = std::max(0.5f, std::min(2.0f,
 			                          static_cast<float>(winHeight) / 900.0f));
 			if (uiScale != prevUiScale) {
-				ImGui::GetStyle() = imguiDefaultStyle; // restore clean baseline
+				ImGui::GetStyle() = imguiDefaultStyle;
 				ImGui::GetStyle().ScaleAllSizes(uiScale);
 				ImGuiStyle& s = ImGui::GetStyle();
 				s.SeparatorSize          = std::max(1.0f, s.SeparatorSize);
