@@ -52,7 +52,15 @@ struct NewWorldParams {
     int      worldTypeIdx = 0;    // 0=Default, 1=SingleBiome, 2=Superflat
     int      biomeIdx     = 0;    // index into BiomeRegistry::Biomes(), used when worldTypeIdx == 1
 
-    // Resolve to a WorldFile::Header (seed 0 means "randomise at generation time")
+    std::vector<SuperflatLayer> superflatLayers = {
+        {2u, 4}, // stone x 4  (bottom)
+        {1u, 2}, // dirt  x 2
+        {0u, 1}, // grass x 1  (top)
+    };
+
+    // Data pack folder paths to embed in this world and reload on every play session.
+    std::vector<std::string> datapacks;
+
     WorldFile::Header MakeHeader(const BiomeRegistry* biomes = nullptr) const {
         WorldFile::Header h;
         h.seed      = seedBuf[0] ? std::atoi(seedBuf) : 0;
@@ -62,6 +70,9 @@ struct NewWorldParams {
             if (biomeIdx >= 0 && biomeIdx < static_cast<int>(blist.size()))
                 h.singleBiome = blist[biomeIdx].id;
         }
+        if (h.worldType == WorldFile::WorldType::Superflat)
+            h.superflatLayers = superflatLayers;
+        h.datapacks = datapacks;
         return h;
     }
 };
@@ -162,11 +173,9 @@ inline void DrawWorldsMenu(const std::string& worldsDir, std::vector<WorldEntry>
 
     ImGui::Spacing();
 
-    // Two rows of three buttons that fill the available width.
     const float spacing = ImGui::GetStyle().ItemSpacing.x;
     const float btnW    = (ImGui::GetContentRegionAvail().x - spacing * 2.0f) / 3.0f;
 
-    // first row
     if (ImGui::Button("Load", ImVec2(btnW, 0))) {
         if (selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size())) {
             wantLoad = true;
@@ -204,7 +213,6 @@ inline void DrawWorldsMenu(const std::string& worldsDir, std::vector<WorldEntry>
         }
     }
 
-    // second row
     if (ImGui::Button("Delete", ImVec2(btnW, 0))) {
         if (selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size())) {
             wantDelete = true;
@@ -221,11 +229,12 @@ inline void DrawWorldsMenu(const std::string& worldsDir, std::vector<WorldEntry>
     ImGui::End();
 }
 
-inline void DrawNewWorldMenu(NewWorldParams& params, bool& wantCreate, bool& wantBack, const BiomeRegistry& biomes, int winW, int winH)
+inline void DrawNewWorldMenu(NewWorldParams& params, bool& wantCreate, bool& wantBack, const BiomeRegistry& biomes, const BlockRegistry& blocks, int winW, int winH)
 {
     static const char* kWorldTypes[] = {"Default", "Single Biome", "Superflat"};
 
-    const float w = std::max(280.0f, winW * 0.28f);
+    const float w = std::max(params.worldTypeIdx == 2 ? 400.0f : 280.0f,
+                             winW * (params.worldTypeIdx == 2 ? 0.38f : 0.28f));
     ImGui::SetNextWindowSize(ImVec2(w, 0), ImGuiCond_Always);
     ImGui::SetNextWindowPos(
         ImVec2(winW * 0.5f, winH * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
@@ -263,6 +272,112 @@ inline void DrawNewWorldMenu(NewWorldParams& params, bool& wantCreate, bool& wan
         } else {
             ImGui::TextDisabled("(no biomes loaded)");
         }
+    }
+
+    if (params.worldTypeIdx == 2) {
+        std::vector<std::pair<uint32_t, std::string>> blockList;
+        blockList.reserve(blocks.Blocks().size());
+        for (const auto& [id, bd] : blocks.Blocks())
+            blockList.push_back({id, bd.name});
+        std::sort(blockList.begin(), blockList.end(),
+                  [](const auto& a, const auto& b){ return a.first < b.first; });
+        std::vector<const char*> bnames;
+        bnames.reserve(blockList.size());
+        for (const auto& bl : blockList) bnames.push_back(bl.second.c_str());
+        auto findBlockIdx = [&](uint32_t id) -> int {
+            for (int bi = 0; bi < static_cast<int>(blockList.size()); ++bi)
+                if (blockList[bi].first == id) return bi;
+            return 0;
+        };
+
+        ImGui::Spacing();
+        ImGui::SeparatorText("Layers (top = surface)");
+        const float sp     = ImGui::GetStyle().ItemSpacing.x;
+        const float frmH   = ImGui::GetFrameHeight();
+        const float sqW    = frmH;
+        const float thickW = 70.0f;
+        const float avail  = ImGui::GetContentRegionAvail().x;
+        const float comboW = avail - thickW - sp - sqW - sp - sqW - sp - sqW;
+
+        ImGui::BeginChild("##sf_layers", ImVec2(0, 200.0f), ImGuiChildFlags_Borders);
+
+        int deleteIdx = -1, swapIdx = -1, swapDir = 0;
+        const int n = static_cast<int>(params.superflatLayers.size());
+        for (int di = 0; di < n; ++di) {
+            const int i = n - 1 - di;
+            auto& layer = params.superflatLayers[i];
+            ImGui::PushID(i);
+
+            int blkIdx = findBlockIdx(layer.blockID);
+            ImGui::SetNextItemWidth(std::max(comboW, 60.0f));
+            if (!bnames.empty() &&
+                ImGui::Combo("##blk", &blkIdx, bnames.data(), static_cast<int>(bnames.size())))
+                layer.blockID = blockList[blkIdx].first;
+
+            ImGui::SameLine(0, sp);
+            ImGui::SetNextItemWidth(thickW);
+            ImGui::DragInt("##thick", &layer.thickness, 0.15f, 1, 255, "%d");
+            layer.thickness = std::max(1, std::min(255, layer.thickness));
+
+            ImGui::SameLine(0, sp);
+            ImGui::BeginDisabled(i >= n - 1);
+            if (ImGui::Button("^##up", ImVec2(sqW, 0))) { swapIdx = i; swapDir = 1; }
+            ImGui::EndDisabled();
+
+            ImGui::SameLine(0, sp);
+            ImGui::BeginDisabled(i <= 0);
+            if (ImGui::Button("v##dn", ImVec2(sqW, 0))) { swapIdx = i; swapDir = -1; }
+            ImGui::EndDisabled();
+
+            ImGui::SameLine(0, sp);
+            if (ImGui::Button("X##del", ImVec2(sqW, 0))) deleteIdx = i;
+
+            ImGui::PopID();
+        }
+        if (n == 0)
+            ImGui::TextDisabled("(no layers - world will be empty)");
+
+        ImGui::EndChild();
+
+        if (deleteIdx >= 0)
+            params.superflatLayers.erase(params.superflatLayers.begin() + deleteIdx);
+        if (swapIdx >= 0 && swapDir == 1 && swapIdx < n - 1)
+            std::swap(params.superflatLayers[swapIdx], params.superflatLayers[swapIdx + 1]);
+        if (swapIdx >= 0 && swapDir == -1 && swapIdx > 0)
+            std::swap(params.superflatLayers[swapIdx], params.superflatLayers[swapIdx - 1]);
+
+        if (ImGui::Button("+ Add Layer", ImVec2(-1, 0))) {
+            const uint32_t defBlock = blockList.empty() ? 2u : blockList[0].first;
+            params.superflatLayers.push_back({defBlock, 1});
+        }
+    }
+
+    ImGui::Spacing();
+    ImGui::SeparatorText("Data Packs");
+    {
+        int dpDel = -1;
+        if (!params.datapacks.empty()) {
+            const float rowH  = ImGui::GetFrameHeightWithSpacing();
+            const float listH = std::min(90.0f, rowH * static_cast<float>(params.datapacks.size()));
+            ImGui::BeginChild("##dp_list", ImVec2(0, listH), ImGuiChildFlags_Borders);
+            for (int di = 0; di < static_cast<int>(params.datapacks.size()); ++di) {
+                ImGui::PushID(di);
+                const std::string fname = std::filesystem::path(params.datapacks[di]).filename().string();
+                ImGui::TextUnformatted(fname.empty() ? params.datapacks[di].c_str() : fname.c_str());
+                ImGui::SameLine();
+                if (ImGui::SmallButton("X")) dpDel = di;
+                ImGui::PopID();
+            }
+            ImGui::EndChild();
+        } else {
+            ImGui::TextDisabled("(none)");
+        }
+        if (dpDel >= 0)
+            params.datapacks.erase(params.datapacks.begin() + dpDel);
+    }
+    if (ImGui::Button("+ Add Data Pack", ImVec2(-1, 0))) {
+        const std::string picked = OpenNativeFolderDialog("Select custom assets/data folder");
+        if (!picked.empty()) params.datapacks.push_back(picked);
     }
 
     ImGui::Spacing();

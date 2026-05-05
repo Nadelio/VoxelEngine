@@ -156,6 +156,22 @@ uint32_t TerrainGen::SelectBlock(const BlockRegistry& registry,
 void TerrainGen::Generate(Grid& grid, const BlockRegistry& registry, const BiomeRegistry* biomes, const Params& p) {
     const int halfW = p.worldWidth  / 2;
     const int halfD = p.worldDepth  / 2;
+
+    if (!p.superflatLayers.empty()) {
+        int baseY = p.baseHeight;
+        for (const auto& layer : p.superflatLayers) {
+            for (int ly = 0; ly < layer.thickness; ++ly) {
+                for (int z = -halfD; z < halfD; ++z) {
+                    for (int x = -halfW; x < halfW; ++x) {
+                        grid.AddBlock(x, baseY + ly, z, layer.blockID);
+                    }
+                }
+            }
+            baseY += layer.thickness;
+        }
+        return;
+    }
+
     const int minY  = p.baseHeight - 4;
 
     for (int z = -halfD; z < halfD; ++z) {

@@ -31,13 +31,16 @@
 
 /*
 TODO:
-- UI
-	- New world menu
-		- Presets
-			- Custom superflat
-				- Choose blocks for each layer, choose how thick each layer is, choose how many layers there is
-		- Data pack
-			- Load custom assets/data folder
+- Terrain Generation
+	- Structure generation
+		- Trees
+		- Boulders
+		- Stone variant blobs
+			- Add "blob" block generation tag (generates in blobs)
+			- Add "vein" block generation tag (generates in longer strips)
+			- Add "mix" block generation tag (randomly pick between a list of mix-tagged blocks)
+				- This is the default/fallback tag
+			- Block generation tags prioritize individual blocks above block groups
 - Hand model
 	- Held block models
 	- Held item models
@@ -57,12 +60,15 @@ TODO:
 - New blocks
 	- Water
 		- Fluids
+		- Swimmming
 	- Wood
 		- Saplings
 			- Tree/crop growth
 		- Leaves
 			- Decay
 	- Clay
+	- Ice
+		- Block-based friction values
 - Survival mode
 	- Crafting
 		- Crafting table
@@ -115,6 +121,17 @@ TODO:
 		- Two layers
 			- Empty hearts/hunger/thirst layer
 			- Full/Half hearts/hunger/thirst layer
+- Terrain Generation
+	- Infinite worlds
+		- Loading/Unloading chunks based on distance from center of chunk
+- Rendering
+	- Add fog to help cover up unloaded chunks
+	- Add skybox (that rotates between night/day)
+	- Add ambient occlusion
+	- Add shadows
+	- Add global lighting (based on time of day)
+	- Add colored point lighting
+	- Add block materials (like shine for ice blocks and transparency for water)
 */
 
 using namespace std::literals::string_view_literals;

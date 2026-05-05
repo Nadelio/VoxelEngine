@@ -144,6 +144,18 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 			ctx.grid->Clear();
 			WorldFile::Header h;
 			if(WorldFile::Load(loadPath, h, *ctx.grid)) {
+				{
+					namespace fs = std::filesystem;
+					for (const auto& dp : h.datapacks) {
+						const std::string blocksPath  = (fs::path(dp) / "blocks.data").string();
+						const std::string physicsPath = (fs::path(dp) / "physics_constants.data").string();
+						ctx.blockRegistry->Clear();
+						if (!LoadBlocks(blocksPath, ctx.blockAtlas, *ctx.blockRegistry))
+							std::fprintf(stderr, "Warning: data pack missing blocks.data at '%s'\n", blocksPath.c_str());
+						if (LoadPhysicsConstants(physicsPath, *ctx.physicsConstants))
+							ctx.physics->SetConstants(*ctx.physicsConstants);
+					}
+				}
 				ctx.hotbar->SetSlot(0, GRASS);    ctx.hotbar->SetSlot(1, DIRT);
 				ctx.hotbar->SetSlot(2, STONE);    ctx.hotbar->SetSlot(3, ANDESITE);
 				ctx.hotbar->SetSlot(4, SAND);
@@ -156,7 +168,7 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 
 	} else if(ctx.gameState == GameState::NEW_WORLD_MENU) {
 		bool wantCreate = false, wantBack = false;
-		DrawNewWorldMenu(newWorldParams, wantCreate, wantBack, *ctx.biomeRegistry, winW, winH);
+		DrawNewWorldMenu(newWorldParams, wantCreate, wantBack, *ctx.biomeRegistry, *ctx.blockRegistry, winW, winH);
 
 		if(wantBack) { ctx.gameState = GameState::WORLDS_MENU; }
 
@@ -168,12 +180,29 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 			}
 
 			ctx.grid->Clear();
+
+			{
+				namespace fs = std::filesystem;
+				for (const auto& dp : h.datapacks) {
+					const std::string blocksPath  = (fs::path(dp) / "blocks.data").string();
+					const std::string physicsPath = (fs::path(dp) / "physics_constants.data").string();
+					ctx.blockRegistry->Clear();
+					if (!LoadBlocks(blocksPath, ctx.blockAtlas, *ctx.blockRegistry))
+						std::fprintf(stderr, "Warning: data pack missing blocks.data at '%s'\n", blocksPath.c_str());
+					if (LoadPhysicsConstants(physicsPath, *ctx.physicsConstants))
+						ctx.physics->SetConstants(*ctx.physicsConstants);
+				}
+			}
+
 			TerrainGen::Params genParams;
 			genParams.seed = h.seed;
 			if(h.worldType == WorldFile::WorldType::Superflat) {
-				genParams.noiseScale      = 0.0001f;
-				genParams.heightAmplitude = 0;
-				genParams.baseHeight      = 0;
+				genParams.superflatLayers = h.superflatLayers;
+				if(genParams.superflatLayers.empty()) {
+					genParams.noiseScale      = 0.0001f;
+					genParams.heightAmplitude = 0;
+					genParams.baseHeight      = 0;
+				}
 			} else if(h.worldType == WorldFile::WorldType::SingleBiome) {
 				genParams.forceBiome = h.singleBiome;
 			}

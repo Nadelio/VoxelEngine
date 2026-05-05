@@ -1,10 +1,17 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include "BiomeRegistry.hpp"
 #include "BlockRegistry.hpp"
 #include "Grid.hpp"
+
+// A single layer in a Custom Superflat world, stacked bottom-to-top.
+struct SuperflatLayer {
+    uint32_t blockID   = 2; // default: stone
+    int      thickness = 1; // number of blocks tall (1..255)
+};
 
 class TerrainGen {
 public:
@@ -29,6 +36,10 @@ public:
         // World extent (centered at origin)
         int worldWidth = 64; // X: [-worldWidth/2, worldWidth/2)
         int worldDepth = 64; // Z: [-worldDepth/2, worldDepth/2)
+
+        // Custom Superflat layers (bottom to top). When non-empty, all noise-based
+        // generation is skipped and blocks are placed directly from these layers.
+        std::vector<SuperflatLayer> superflatLayers;
     };
 
     // Fill grid with procedurally generated terrain.

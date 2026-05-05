@@ -17,6 +17,12 @@
 //   [2]  biomeNameLen   : uint16_t
 //   [N]  biomeName      : utf-8 bytes
 //   # end if
+//   # if worldType == 2 (superflat)
+//   [1]  layerCount     : uint8  (0..255, bottom-to-top order)
+//   for each layer:
+//     [4]  blockID      : uint32_t
+//     [1]  thickness    : uint8  (1..255)
+//   # end if
 //   [1]  datapackCount  : uint8
 //   for each datapack:
 //     [2]  pathLen      : uint16_t
@@ -43,7 +49,8 @@ struct WorldFile {
     struct Header {
         int32_t          seed         = 0;
         WorldType        worldType    = WorldType::Default;
-        std::string      singleBiome; // only used when worldType == SingleBiome
+        std::string      singleBiome;    // only used when worldType == SingleBiome
+        std::vector<SuperflatLayer> superflatLayers; // only used when worldType == Superflat
         std::vector<std::string> datapacks;
     };
 
