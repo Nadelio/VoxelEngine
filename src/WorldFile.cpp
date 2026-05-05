@@ -207,3 +207,50 @@ fail:
     std::fclose(f);
     return false;
 }
+
+bool WorldFile::ReadHeader(const std::string& path, Header& headerOut) {
+    std::FILE* f = std::fopen(path.c_str(), "rb");
+    if (!f) return false;
+
+    Header h;
+
+    char magic[4];
+    if (std::fread(magic, 1, 4, f) != 4 || std::memcmp(magic, "VXLW", 4) != 0) goto fail;
+
+    uint8_t version;
+    if (!readU8(f, version) || version != 1) goto fail;
+
+    if (!readI32(f, h.seed)) goto fail;
+
+    {
+        uint8_t wt;
+        if (!readU8(f, wt)) goto fail;
+        h.worldType = static_cast<WorldType>(wt);
+    }
+
+    if (h.worldType == WorldType::SingleBiome) {
+        if (!readString(f, h.singleBiome)) goto fail;
+    }
+
+    {
+        uint8_t dpCount;
+        if (!readU8(f, dpCount)) goto fail;
+        h.datapacks.resize(dpCount);
+        for (auto& dp : h.datapacks) {
+            if (!readString(f, dp)) goto fail;
+        }
+    }
+
+    {
+        uint8_t sentinel;
+        if (!readU8(f, sentinel) || sentinel != 0xFF) goto fail;
+    }
+
+    std::fclose(f);
+    headerOut = h;
+    return true;
+
+fail:
+    std::fclose(f);
+    return false;
+}
