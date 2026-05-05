@@ -1,4 +1,5 @@
 #include "WorldSession.hpp"
+#include "MenuSession.hpp"
 
 #include <cstdio>
 #include <filesystem>
@@ -287,11 +288,19 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 	} else if(ctx.gameState == GameState::PAUSE_MENU) {
 		bool wantResume   = false;
 		bool wantSaveQuit = false;
-		DrawPauseMenu(wantSaveQuit, wantResume, winW, winH);
+		bool wantSettings = false;
+		DrawPauseMenu(wantSaveQuit, wantResume, wantSettings, winW, winH);
 
 		if(wantResume) {
 			ctx.gameState = GameState::PLAYING;
 			SDL_SetWindowRelativeMouseMode(ctx.window, true);
+		}
+		if(wantSettings) {
+			ctx.menuSession->settingsPage        = SettingsPage::MAIN;
+			ctx.menuSession->listeningKeybindIdx = -1;
+			ctx.menuSession->editedKeybinds      = *ctx.keybinds;
+			ctx.menuSession->settingsReturnState = GameState::PAUSE_MENU;
+			ctx.gameState = GameState::SETTINGS_MENU;
 		}
 		if(wantSaveQuit) {
 			WorldFile::Header wfh;

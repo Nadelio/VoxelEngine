@@ -32,20 +32,6 @@
 /*
 TODO:
 - UI
-	- Main menu
-		- Settings
-			- Controls
-				- Edit keybinds
-			- Texture pack
-				- Load custom block_atlas.png and/or item_atlas.png
-			- Resource pack
-				- Load custom assets folder
-			- Data pack
-				- Load custom assets/data folder
-	- Pause menu
-		- Settings
-	- Worlds menu
-		- Rename world button
 	- New world menu
 		- Presets
 			- Custom superflat
@@ -221,6 +207,7 @@ int main() {
 	const std::string physicsConstantsPath    = ResolveAssetPath("assets/data/physics_constants.data"sv);
 	const std::string blocksDataPath          = ResolveAssetPath("assets/data/blocks.data"sv);
 	const std::string keybindsDataPath        = ResolveAssetPath("assets/data/keybinds.data"sv);
+	const std::string biomesDataPath          = ResolveAssetPath("assets/data/biomes.data"sv);
 
 	// init default shader
 	Shader defaultShader;
@@ -279,6 +266,12 @@ int main() {
 		std::fprintf(stderr, "Warning: could not load '%s', using defaults.\n", keybindsDataPath.c_str());
 	}
 
+	// load biome registry
+	BiomeRegistry biomeRegistry;
+	if(!LoadBiomes(biomesDataPath, biomeRegistry)) {
+		std::fprintf(stderr, "Warning: could not load '%s', using no biomes.\n", biomesDataPath.c_str());
+	}
+
 	// init block registry from blocks.data
 	BlockRegistry blockRegistry;
 	if(!LoadBlocks(blocksDataPath, &blockAtlas, blockRegistry)) {
@@ -318,6 +311,7 @@ int main() {
 	ctx.defaultShader = &defaultShader;
 	ctx.wireframeShader = &wireframeShader;
 	ctx.blockAtlas = &blockAtlas;
+	ctx.itemAtlas  = &itemAtlas;
 	ctx.blockRegistry = &blockRegistry;
 	ctx.grid = &grid;
 	ctx.physics = &physics;
@@ -327,6 +321,7 @@ int main() {
 	ctx.hotbar = &hotbar;
 	ctx.keybinds = &keybinds;
 	ctx.debugOverlay = &debugOverlay;
+	ctx.biomeRegistry = &biomeRegistry;
 	ctx.worldsDir = worldsDir;
 	ctx.blocksDataPath = blocksDataPath;
 	ctx.physicsConstantsPath = physicsConstantsPath;
@@ -335,6 +330,7 @@ int main() {
 	// init handlers
 	WorldSession worldSession;
 	MenuSession  menuSession;
+	ctx.menuSession = &menuSession;
 
 	// main loop
 	Uint64 previousCounter = SDL_GetPerformanceCounter();

@@ -5,6 +5,7 @@
 #include <SDL3/SDL.h>
 
 #include "AtlasTexture.hpp"
+#include "BiomeRegistry.hpp"
 #include "BlockRegistry.hpp"
 #include "Camera.hpp"
 #include "DebugOverlay.hpp"
@@ -16,6 +17,8 @@
 #include "PhysicsConstants.hpp"
 #include "Shader.hpp"
 
+struct MenuSession; // forward declaration to avoid circular include
+
 // Flat context struct that holds non-owning pointers to all shared engine
 // resources and mutable game-wide state. Populated once in main() and then
 // passed by reference to the two session handlers.
@@ -25,6 +28,7 @@ struct AppContext {
 	Shader*           defaultShader   = nullptr;
 	Shader*           wireframeShader = nullptr;
 	AtlasTexture*     blockAtlas      = nullptr;
+	AtlasTexture*     itemAtlas       = nullptr;
 
 	// Game objects
 	BlockRegistry*    blockRegistry   = nullptr;
@@ -36,6 +40,8 @@ struct AppContext {
 	Hotbar*           hotbar          = nullptr;
 	Keybinds*         keybinds        = nullptr;
 	DebugOverlay*     debugOverlay    = nullptr;
+	MenuSession*      menuSession     = nullptr;
+	BiomeRegistry*    biomeRegistry   = nullptr;
 
 	// Asset paths (needed for hot-reload and world management)
 	std::string worldsDir;
