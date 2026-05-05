@@ -32,34 +32,23 @@
 TODO:
 - UI
 	- Main menu
-		- Worlds
 		- Settings
-		- Quit
+			- Controls
+				- Edit keybinds
+			- Texture pack
+				- Load custom block_atlas.png and/or item_atlas.png
+			- Resource pack
+				- Load custom assets folder
+			- Data pack
+				- Load custom assets/data folder
 	- Pause menu
-		- Save and quit
-		- Controls
-			- Edit keybinds
-		- Texture pack
-			- Load custom block_atlas.png and/or item_atlas.png
-		- Resource pack
-			- Load custom assets folder
-		- Data pack
-			- Load custom assets/data folder
+		- Settings
 	- Worlds menu
-		- Load world files
-			- World name
-			- World type (single biome, default, preset)
-			- Datapacks loaded?
-			- Custom seed?
-		- New world button
 		- Rename world button
-		- Delete world button
 	- New world menu
-		- Single biome?
 		- Presets
-			- Superflat
 			- Custom superflat
-		- Custom seed
+				- Choose blocks for each layer, choose how thick each layer is, choose how many layers there is
 		- Data pack
 			- Load custom assets/data folder
 - Hand model
@@ -312,8 +301,8 @@ int main() {
 
 	// initialize player (dimensions from physics constants)
 	Physics::Entity player;
-	player.radius      = 0.30f;
-	player.height      = physicsConstants.standHeight;
+	player.radius = 0.30f;
+	player.height = physicsConstants.standHeight;
 	player.eyeFromFeet = physicsConstants.standEyeFromFeet;
 
 	// runtime variables
@@ -323,23 +312,23 @@ int main() {
 
 	// init global context
 	AppContext ctx;
-	ctx.window           = window.get();
-	ctx.defaultShader    = &defaultShader;
-	ctx.wireframeShader  = &wireframeShader;
-	ctx.blockAtlas       = &blockAtlas;
-	ctx.blockRegistry    = &blockRegistry;
-	ctx.grid             = &grid;
-	ctx.physics          = &physics;
-	ctx.physicsConstants = &physicsConstants;
-	ctx.camera           = &camera;
-	ctx.player           = &player;
-	ctx.hotbar           = &hotbar;
-	ctx.keybinds         = &keybinds;
-	ctx.debugOverlay     = &debugOverlay;
-	ctx.worldsDir            = worldsDir;
-	ctx.blocksDataPath       = blocksDataPath;
+	ctx.window = window.get();
+	ctx.defaultShader = &defaultShader;
+	ctx.wireframeShader = &wireframeShader;
+	ctx.blockAtlas = &blockAtlas;
+	ctx.blockRegistry = &blockRegistry;
+	ctx.grid = &grid;
+	ctx.physics = &physics;
+	ctx. = &physicsConstants;
+	ctx.camera = &camera;
+	ctx.player = &player;
+	ctx.hotbar = &hotbar;
+	ctx.keybinds = &keybinds;
+	ctx.debugOverlay = &debugOverlay;
+	ctx.worldsDir = worldsDir;
+	ctx.blocksDataPath = blocksDataPath;
 	ctx.physicsConstantsPath = physicsConstantsPath;
-	ctx.keybindsDataPath     = keybindsDataPath;
+	ctx.keybindsDataPath = keybindsDataPath;
 
 	// init handlers
 	WorldSession worldSession;
