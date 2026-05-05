@@ -33,6 +33,7 @@
 #include "Shader.hpp"
 #include "DebugOverlay.hpp"
 #include "Hotbar.hpp"
+#include "Keybinds.hpp"
 #include "TerrainGen.hpp"
 #include "WorldFile.hpp"
 
@@ -295,11 +296,6 @@ namespace {
 }
 
 int main() {
-
-	std::cout << "TODO:\n"
-			  << "- Terrain Generation\n"
-			  << "\t- Saving maps to file\n";
-	
 	// init SDL and OpenGL
 	if(!SDL_Init(SDL_INIT_VIDEO)) {
 		std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
@@ -344,6 +340,7 @@ int main() {
 	const std::string itemAtlasPNGPath = ResolveAssetPath("assets/item_atlas.png"sv);
 	const std::string physicsConstantsPath = ResolveAssetPath("assets/data/physics_constants.data"sv);
 	const std::string blocksDataPath = ResolveAssetPath("assets/data/blocks.data"sv);
+	const std::string keybindsDataPath = ResolveAssetPath("assets/data/keybinds.data"sv);
 
 	// init default shader
 	Shader defaultShader;
@@ -393,6 +390,12 @@ int main() {
 	PhysicsConstants physicsConstants;
 	if(!LoadPhysicsConstants(physicsConstantsPath, physicsConstants)) {
 		std::fprintf(stderr, "Warning: could not load '%s', using defaults.\n", physicsConstantsPath.c_str());
+	}
+
+	// load keybinds (use defaults if file not present)
+	Keybinds keybinds;
+	if(!LoadKeybinds(keybindsDataPath, keybinds)) {
+		std::fprintf(stderr, "Warning: could not load '%s', using defaults.\n", keybindsDataPath.c_str());
 	}
 
 	// block IDs (used for hotbar initialisation)
@@ -490,8 +493,69 @@ int main() {
 			if(event.type == SDL_EVENT_QUIT) {
 				goto stop_mainloop;
 			}
-			if(event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE) {
-				goto stop_mainloop;
+			if(event.type == SDL_EVENT_KEY_DOWN) {
+				const SDL_Scancode sc = event.key.scancode;
+				const bool* const kbState = SDL_GetKeyboardState(nullptr);
+				if(ChordPressed(sc, kbState, keybinds.quit)) { goto stop_mainloop; }
+				if(ChordPressed(sc, kbState, keybinds.debug_toggle))         { debug_view = !debug_view; }
+				if(ChordPressed(sc, kbState, keybinds.debug_wireframe))      { debug_wireframe = !debug_wireframe; }
+				if(ChordPressed(sc, kbState, keybinds.debug_block))          { debug_looked_at_block = !debug_looked_at_block; }
+				if(ChordPressed(sc, kbState, keybinds.debug_face))           { debug_looked_at_face = !debug_looked_at_face; }
+				if(ChordPressed(sc, kbState, keybinds.debug_data))           { debug_looked_at_data = !debug_looked_at_data; }
+				if(ChordPressed(sc, kbState, keybinds.debug_wireframe_only)) { debug_wireframe_only = !debug_wireframe_only; }
+				if(ChordPressed(sc, kbState, keybinds.debug_stance))         { debug_stance = !debug_stance; }
+				if(ChordPressed(sc, kbState, keybinds.debug_velocity))       { debug_velocity = !debug_velocity; }
+				if(ChordPressed(sc, kbState, keybinds.debug_reload)) {
+					// Hot-reload physics constants
+					PhysicsConstants reloaded;
+					if(LoadPhysicsConstants(physicsConstantsPath, reloaded)) {
+						physicsConstants = reloaded;
+						physics.SetConstants(physicsConstants);
+						std::fprintf(stderr, "Hot-reloaded physics_constants.data\n");
+					} else {
+						std::fprintf(stderr, "Warning: hot-reload failed for '%s'\n", physicsConstantsPath.c_str());
+					}
+					// Hot-reload blocks
+					blockRegistry.Clear();
+					if(LoadBlocks(blocksDataPath, &blockAtlas, blockRegistry)) {
+						grid.RebuildVisibility();
+						std::fprintf(stderr, "Hot-reloaded blocks.data\n");
+					} else {
+						std::fprintf(stderr, "Warning: hot-reload failed for '%s'\n", blocksDataPath.c_str());
+					}
+					// Hot-reload keybinds
+					Keybinds reloadedKeybinds;
+					if(LoadKeybinds(keybindsDataPath, reloadedKeybinds)) {
+						keybinds = reloadedKeybinds;
+						std::fprintf(stderr, "Hot-reloaded keybinds.data\n");
+					} else {
+						std::fprintf(stderr, "Warning: hot-reload failed for '%s'\n", keybindsDataPath.c_str());
+					}
+				}
+				if(ChordPressed(sc, kbState, keybinds.debug_save)) {
+					WorldFile::Header wfh;
+					wfh.seed = terrainParams.seed;
+					if(WorldFile::Save(worldSavePath, wfh, grid)) {
+						std::fprintf(stderr, "World saved to: %s\n", worldSavePath.c_str());
+					} else {
+						std::fprintf(stderr, "Warning: world save failed for '%s'\n", worldSavePath.c_str());
+					}
+				}
+				if(ChordPressed(sc, kbState, keybinds.debug_load)) {
+					WorldFile::Header wfh;
+					if(WorldFile::Load(worldSavePath, wfh, grid)) {
+						grid.RebuildVisibility();
+						std::fprintf(stderr, "World loaded from: %s (seed %d)\n", worldSavePath.c_str(), wfh.seed);
+					} else {
+						std::fprintf(stderr, "Warning: world load failed for '%s'\n", worldSavePath.c_str());
+					}
+				}
+				for(int i = 0; i < 9; ++i) {
+					if(ChordPressed(sc, kbState, keybinds.hotbar[i])) {
+						hotbar.SelectSlot(i);
+						break;
+					}
+				}
 			}
 
 			if(event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
@@ -525,62 +589,6 @@ int main() {
 					}
 				}
 			}
-			if(event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F3) {
-				debug_view = !debug_view;
-			}
-			if(event.type == SDL_EVENT_KEY_DOWN) {
-				const bool* const kbState = SDL_GetKeyboardState(nullptr);
-				if(kbState[SDL_SCANCODE_F3]) {
-					if(event.key.key == SDLK_W) { debug_wireframe = !debug_wireframe; }
-					if(event.key.key == SDLK_B) { debug_looked_at_block = !debug_looked_at_block; }
-					if(event.key.key == SDLK_F) { debug_looked_at_face = !debug_looked_at_face; }
-					if(event.key.key == SDLK_D) { debug_looked_at_data = !debug_looked_at_data; }
-					if(event.key.key == SDLK_T) { debug_wireframe_only = !debug_wireframe_only; }
-					if(event.key.key == SDLK_S) { debug_stance = !debug_stance; }
-					if(event.key.key == SDLK_V) { debug_velocity = !debug_velocity; }
-					if(event.key.key == SDLK_H) {
-						// Hot-reload physics constants
-						PhysicsConstants reloaded;
-						if(LoadPhysicsConstants(physicsConstantsPath, reloaded)) {
-							physicsConstants = reloaded;
-							physics.SetConstants(physicsConstants);
-							std::fprintf(stderr, "Hot-reloaded physics_constants.data\n");
-						} else {
-							std::fprintf(stderr, "Warning: hot-reload failed for '%s'\n", physicsConstantsPath.c_str());
-						}
-						// Hot-reload blocks
-						blockRegistry.Clear();
-						if(LoadBlocks(blocksDataPath, &blockAtlas, blockRegistry)) {
-							grid.RebuildVisibility();
-							std::fprintf(stderr, "Hot-reloaded blocks.data\n");
-						} else {
-							std::fprintf(stderr, "Warning: hot-reload failed for '%s'\n", blocksDataPath.c_str());
-						}
-					}
-					if(event.key.key == SDLK_E) {
-						WorldFile::Header wfh;
-						wfh.seed = terrainParams.seed;
-						if(WorldFile::Save(worldSavePath, wfh, grid)) {
-							std::fprintf(stderr, "World saved to: %s\n", worldSavePath.c_str());
-						} else {
-							std::fprintf(stderr, "Warning: world save failed for '%s'\n", worldSavePath.c_str());
-						}
-					}
-					if(event.key.key == SDLK_L) {
-						WorldFile::Header wfh;
-						if(WorldFile::Load(worldSavePath, wfh, grid)) {
-							grid.RebuildVisibility();
-							std::fprintf(stderr, "World loaded from: %s (seed %d)\n", worldSavePath.c_str(), wfh.seed);
-						} else {
-							std::fprintf(stderr, "Warning: world load failed for '%s'\n", worldSavePath.c_str());
-						}
-					}
-				} else {
-					if(event.key.key >= SDLK_1 && event.key.key <= SDLK_9) {
-						hotbar.SelectSlot(static_cast<int>(event.key.key - SDLK_1));
-					}
-				}
-			}
 			if(event.type == SDL_EVENT_MOUSE_WHEEL) {
 				if(event.wheel.y > 0) { hotbar.SelectPrev(); }
 				else if(event.wheel.y < 0) { hotbar.SelectNext(); }
@@ -599,33 +607,33 @@ int main() {
 		camera.UpdateFromMouseDelta(mouseDeltaX, mouseDeltaY);
 
 		const bool* const keys = SDL_GetKeyboardState(nullptr);
-		const bool ctrlDown = keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL];
-		const bool shiftDown = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
-		const bool crawlComboDown = ctrlDown && shiftDown;
+		const bool crawlComboDown = ChordHeld(keys, keybinds.crawl_toggle);
 		crawlToggleThisFrame = crawlComboDown && !prevCrawlComboDown;
 		prevCrawlComboDown = crawlComboDown;
 
 		// avoid perspective errors
 		glm::vec3 forward = camera.Forward();
+		forward.y = 0.0f;
+		forward = glm::normalize(forward);
 		glm::vec3 right = glm::cross(forward, glm::vec3(0.0f, 1.0f, 0.0f));
 
 		glm::vec3 moveDir(0.0f);
-		if(keys[SDL_SCANCODE_W]) moveDir += forward;
-		if(keys[SDL_SCANCODE_S]) moveDir -= forward;
-		if(keys[SDL_SCANCODE_D]) moveDir += right;
-		if(keys[SDL_SCANCODE_A]) moveDir -= right;
+		if(ChordHeld(keys, keybinds.move_forward)) moveDir += forward;
+		if(ChordHeld(keys, keybinds.move_back))    moveDir -= forward;
+		if(ChordHeld(keys, keybinds.move_right))   moveDir += right;
+		if(ChordHeld(keys, keybinds.move_left))    moveDir -= right;
 		if(glm::length2(moveDir) > 0.0000001f) {
 			moveDir = glm::normalize(moveDir);
 		}
 		const glm::vec3 desiredHorizontalVelocity = moveDir * physicsConstants.moveSpeed;
 
-		const bool crouchHeld = ctrlDown;
+		const bool crouchHeld = ChordHeld(keys, keybinds.crouch);
 
 		physics.StepEntityEuler(
 			player,
 			static_cast<float>(dt),
 			desiredHorizontalVelocity,
-			keys[SDL_SCANCODE_SPACE],
+			ChordHeld(keys, keybinds.jump),
 			crouchHeld,
 			crawlToggleThisFrame,
 			physicsConstants
