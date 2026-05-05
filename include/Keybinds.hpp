@@ -157,6 +157,7 @@ inline bool LoadKeybinds(const std::string& path, Keybinds& out) {
     };
 
     readChord("quit",                 out.quit);
+    readChord("pause",                out.pause);
     readChord("move_forward",         out.move_forward);
     readChord("move_back",            out.move_back);
     readChord("move_left",            out.move_left);
@@ -181,5 +182,116 @@ inline bool LoadKeybinds(const std::string& path, Keybinds& out) {
         readChord(key.c_str(), out.hotbar[i]);
     }
 
+    return true;
+}
+
+// ─── Serialization helpers ────────────────────────────────────────────────
+
+// SDL_Scancode → the token string used in keybinds.data.
+// Returns an empty string for unknown scancodes.
+inline std::string ScancodeToKeyToken(SDL_Scancode sc) {
+    switch (sc) {
+        case SDL_SCANCODE_LCTRL:        return "LC";
+        case SDL_SCANCODE_RCTRL:        return "RC";
+        case SDL_SCANCODE_LSHIFT:       return "LS";
+        case SDL_SCANCODE_RSHIFT:       return "RS";
+        case SDL_SCANCODE_LALT:         return "LA";
+        case SDL_SCANCODE_RALT:         return "RA";
+        case SDL_SCANCODE_ESCAPE:       return "ES";
+        case SDL_SCANCODE_CAPSLOCK:     return "CL";
+        case SDL_SCANCODE_BACKSPACE:    return "B";
+        case SDL_SCANCODE_RETURN:       return "EN";
+        case SDL_SCANCODE_DELETE:       return "D";
+        case SDL_SCANCODE_TAB:          return "T";
+        case SDL_SCANCODE_SPACE:        return "SP";
+        default: break;
+    }
+    if (sc >= SDL_SCANCODE_F1 && sc <= SDL_SCANCODE_F12)
+        return std::string("F") + std::to_string(sc - SDL_SCANCODE_F1 + 1);
+    if (sc >= SDL_SCANCODE_A && sc <= SDL_SCANCODE_Z)
+        return std::string(1, static_cast<char>('a' + (sc - SDL_SCANCODE_A)));
+    if (sc >= SDL_SCANCODE_1 && sc <= SDL_SCANCODE_9)
+        return std::string(1, static_cast<char>('1' + (sc - SDL_SCANCODE_1)));
+    if (sc == SDL_SCANCODE_0)            return "0";
+    if (sc == SDL_SCANCODE_MINUS)        return "-";
+    if (sc == SDL_SCANCODE_EQUALS)       return "=";
+    if (sc == SDL_SCANCODE_LEFTBRACKET)  return "[";
+    if (sc == SDL_SCANCODE_RIGHTBRACKET) return "]";
+    if (sc == SDL_SCANCODE_SEMICOLON)    return ";";
+    if (sc == SDL_SCANCODE_APOSTROPHE)   return "'";
+    if (sc == SDL_SCANCODE_GRAVE)        return "`";
+    if (sc == SDL_SCANCODE_COMMA)        return ",";
+    if (sc == SDL_SCANCODE_PERIOD)       return ".";
+    if (sc == SDL_SCANCODE_SLASH)        return "/";
+    if (sc == SDL_SCANCODE_BACKSLASH)    return "\\\\";
+    return {};
+}
+
+// KeyChord → the <tok+tok+...> literal used in keybinds.data.
+inline std::string ChordToDataString(const KeyChord& chord) {
+    if (chord.keys.empty()) return "<>";
+    std::string s = "<";
+    for (std::size_t i = 0; i < chord.keys.size(); ++i) {
+        if (i > 0) s += '+';
+        const std::string tok = ScancodeToKeyToken(chord.keys[i]);
+        s += tok.empty() ? "?" : tok;
+    }
+    s += '>';
+    return s;
+}
+
+// KeyChord → a human-readable display string, e.g. "Left Alt + F4".
+inline std::string ChordToDisplayString(const KeyChord& chord) {
+    if (chord.keys.empty()) return "(none)";
+    std::string s;
+    for (std::size_t i = 0; i < chord.keys.size(); ++i) {
+        if (i > 0) s += " + ";
+        if (const char* name = SDL_GetScancodeName(chord.keys[i]))
+            s += name;
+        else
+            s += '?';
+    }
+    return s;
+}
+
+// Write all keybinds to a .data file. Returns false on I/O failure.
+inline bool SaveKeybinds(const std::string& path, const Keybinds& kb) {
+    FILE* f = std::fopen(path.c_str(), "w");
+    if (!f) return false;
+
+    auto write = [&](const char* name, const KeyChord& chord) {
+        std::fprintf(f, "%-24s : %s\n", name, ChordToDataString(chord).c_str());
+    };
+
+    std::fprintf(f, "# Keybinds – auto-saved by the settings menu.\n");
+    std::fprintf(f, "# See the original keybinds.data for the token reference.\n\n");
+    std::fprintf(f, "# general\n");
+    write("quit",                 kb.quit);
+    write("pause",                kb.pause);
+    write("move_forward",         kb.move_forward);
+    write("move_back",            kb.move_back);
+    write("move_left",            kb.move_left);
+    write("move_right",           kb.move_right);
+    write("jump",                 kb.jump);
+    write("crouch",               kb.crouch);
+    write("crawl_toggle",         kb.crawl_toggle);
+    std::fprintf(f, "\n# hotbar\n");
+    for (int i = 0; i < 9; ++i) {
+        const std::string key = "hotbar_" + std::to_string(i + 1);
+        write(key.c_str(), kb.hotbar[i]);
+    }
+    std::fprintf(f, "\n# debug\n");
+    write("debug_toggle",         kb.debug_toggle);
+    write("debug_wireframe",      kb.debug_wireframe);
+    write("debug_block",          kb.debug_block);
+    write("debug_face",           kb.debug_face);
+    write("debug_data",           kb.debug_data);
+    write("debug_wireframe_only", kb.debug_wireframe_only);
+    write("debug_stance",         kb.debug_stance);
+    write("debug_velocity",       kb.debug_velocity);
+    write("debug_reload",         kb.debug_reload);
+    write("debug_save",           kb.debug_save);
+    write("debug_load",           kb.debug_load);
+    std::fclose(f);
     return true;
 }

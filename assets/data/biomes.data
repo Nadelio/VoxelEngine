@@ -1,0 +1,15 @@
+# Biome definitions
+# id        : string identifier referenced in blocks.data  biome : tag[<id>]
+# name      : display name (used in debug menu and in-game biome lists)
+# temp      : temperature range [-1.0..1.0]   (determines where the biome generates)
+# elevation : surface Y elevation range       (further restricts where the biome appears)
+
+# During world generation each column is assigned a temperature value sampled from a
+# large-scale noise map.  The biome whose temp (and elevation) range best matches that
+# column is selected.  "Best" is defined as the smallest temperature-range span that
+# still contains the sampled value; ties are broken by declaration order.
+
+biome : { id : "tundra",  name : "Tundra",  temp : -1.0..-0.5, elevation : -256..255 }
+biome : { id : "forest",  name : "Forest",  temp : -0.5..0.0,  elevation : -256..255 }
+biome : { id : "plains",  name : "Plains",  temp :  0.0..0.5,  elevation : -256..255 }
+biome : { id : "desert",  name : "Desert",  temp :  0.5..1.0,  elevation : -256..255 }

@@ -6,9 +6,11 @@
 
 #include <SDL3/SDL.h>
 
+#include "AssetLoader.hpp"
 #include "GameUI.hpp"
 #include "Grid.hpp"
 #include "Hotbar.hpp"
+#include "Keybinds.hpp"
 #include "TerrainGen.hpp"
 #include "WorldFile.hpp"
 
@@ -30,9 +32,75 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 		}
 
 	} else if(ctx.gameState == GameState::SETTINGS_MENU) {
-		bool wantBack = false;
-		DrawSettingsMenu(wantBack, winW, winH);
-		if(wantBack) { ctx.gameState = GameState::MAIN_MENU; }
+		if (settingsPage == SettingsPage::MAIN) {
+			bool wantBack      = false;
+			bool wantControls  = false;
+			std::string pickedBlockAtlas, pickedItemAtlas, pickedResPack, pickedDataPack;
+			DrawSettingsMenu(wantBack, wantControls,
+			                 pickedBlockAtlas, pickedItemAtlas,
+			                 pickedResPack, pickedDataPack,
+			                 winW, winH);
+
+			if (wantBack) {
+				ctx.gameState = settingsReturnState;
+				settingsReturnState = GameState::MAIN_MENU;
+			}
+			if (wantControls) {
+				settingsPage        = SettingsPage::CONTROLS;
+				editedKeybinds      = *ctx.keybinds;
+				listeningKeybindIdx = -1;
+			}
+
+			if (!pickedBlockAtlas.empty()) {
+				if (!ctx.blockAtlas->LoadFromFile(pickedBlockAtlas))
+					std::fprintf(stderr, "Warning: failed to load block atlas from '%s'\n",
+					             pickedBlockAtlas.c_str());
+			}
+			if (!pickedItemAtlas.empty()) {
+				if (!ctx.itemAtlas->LoadFromFile(pickedItemAtlas))
+					std::fprintf(stderr, "Warning: failed to load item atlas from '%s'\n",
+					             pickedItemAtlas.c_str());
+			}
+
+			if (!pickedResPack.empty()) {
+				namespace fs = std::filesystem;
+				const std::string blockPath = (fs::path(pickedResPack) / "block_atlas.png").string();
+				const std::string itemPath  = (fs::path(pickedResPack) / "item_atlas.png").string();
+				if (!ctx.blockAtlas->LoadFromFile(blockPath))
+					std::fprintf(stderr, "Warning: resource pack missing block_atlas.png at '%s'\n",
+					             blockPath.c_str());
+				if (!ctx.itemAtlas->LoadFromFile(itemPath))
+					std::fprintf(stderr, "Warning: resource pack missing item_atlas.png at '%s'\n",
+					             itemPath.c_str());
+			}
+
+			if (!pickedDataPack.empty()) {
+				namespace fs = std::filesystem;
+				const std::string blocksPath  = (fs::path(pickedDataPack) / "blocks.data").string();
+				const std::string physicsPath = (fs::path(pickedDataPack) / "physics_constants.data").string();
+				ctx.blockRegistry->Clear();
+				if (!LoadBlocks(blocksPath, ctx.blockAtlas, *ctx.blockRegistry))
+					std::fprintf(stderr, "Warning: data pack missing blocks.data at '%s'\n",
+					             blocksPath.c_str());
+				if (!LoadPhysicsConstants(physicsPath, *ctx.physicsConstants))
+					std::fprintf(stderr, "Warning: data pack missing physics_constants.data at '%s'\n",
+					             physicsPath.c_str());
+				else
+					ctx.physics->SetConstants(*ctx.physicsConstants);
+			}
+
+		} else if (settingsPage == SettingsPage::CONTROLS) {
+			bool wantBack = false;
+			DrawControlsMenu(editedKeybinds, listeningKeybindIdx, wantBack, winW, winH);
+			if (wantBack) {
+				if (!SaveKeybinds(ctx.keybindsDataPath, editedKeybinds))
+					std::fprintf(stderr, "Warning: could not save keybinds to '%s'\n",
+					             ctx.keybindsDataPath.c_str());
+				LoadKeybinds(ctx.keybindsDataPath, *ctx.keybinds);
+				settingsPage        = SettingsPage::MAIN;
+				listeningKeybindIdx = -1;
+			}
+		}
 
 	} else if(ctx.gameState == GameState::WORLDS_MENU) {
 		bool wantLoad = false,
@@ -76,6 +144,18 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 			ctx.grid->Clear();
 			WorldFile::Header h;
 			if(WorldFile::Load(loadPath, h, *ctx.grid)) {
+				{
+					namespace fs = std::filesystem;
+					for (const auto& dp : h.datapacks) {
+						const std::string blocksPath  = (fs::path(dp) / "blocks.data").string();
+						const std::string physicsPath = (fs::path(dp) / "physics_constants.data").string();
+						ctx.blockRegistry->Clear();
+						if (!LoadBlocks(blocksPath, ctx.blockAtlas, *ctx.blockRegistry))
+							std::fprintf(stderr, "Warning: data pack missing blocks.data at '%s'\n", blocksPath.c_str());
+						if (LoadPhysicsConstants(physicsPath, *ctx.physicsConstants))
+							ctx.physics->SetConstants(*ctx.physicsConstants);
+					}
+				}
 				ctx.hotbar->SetSlot(0, GRASS);    ctx.hotbar->SetSlot(1, DIRT);
 				ctx.hotbar->SetSlot(2, STONE);    ctx.hotbar->SetSlot(3, ANDESITE);
 				ctx.hotbar->SetSlot(4, SAND);
@@ -88,26 +168,45 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 
 	} else if(ctx.gameState == GameState::NEW_WORLD_MENU) {
 		bool wantCreate = false, wantBack = false;
-		DrawNewWorldMenu(newWorldParams, wantCreate, wantBack, winW, winH);
+		DrawNewWorldMenu(newWorldParams, wantCreate, wantBack, *ctx.biomeRegistry, *ctx.blockRegistry, winW, winH);
 
 		if(wantBack) { ctx.gameState = GameState::WORLDS_MENU; }
 
 		if(wantCreate) {
-			WorldFile::Header h = newWorldParams.MakeHeader();
+			WorldFile::Header h = newWorldParams.MakeHeader(ctx.biomeRegistry);
 			if(h.seed == 0) {
 				h.seed = static_cast<int32_t>(SDL_GetPerformanceCounter() & 0x7FFFFFFF);
 				if(h.seed == 0) h.seed = 1;
 			}
 
 			ctx.grid->Clear();
+
+			{
+				namespace fs = std::filesystem;
+				for (const auto& dp : h.datapacks) {
+					const std::string blocksPath  = (fs::path(dp) / "blocks.data").string();
+					const std::string physicsPath = (fs::path(dp) / "physics_constants.data").string();
+					ctx.blockRegistry->Clear();
+					if (!LoadBlocks(blocksPath, ctx.blockAtlas, *ctx.blockRegistry))
+						std::fprintf(stderr, "Warning: data pack missing blocks.data at '%s'\n", blocksPath.c_str());
+					if (LoadPhysicsConstants(physicsPath, *ctx.physicsConstants))
+						ctx.physics->SetConstants(*ctx.physicsConstants);
+				}
+			}
+
 			TerrainGen::Params genParams;
 			genParams.seed = h.seed;
 			if(h.worldType == WorldFile::WorldType::Superflat) {
-				genParams.noiseScale      = 0.0001f;
-				genParams.heightAmplitude = 0;
-				genParams.baseHeight      = 0;
+				genParams.superflatLayers = h.superflatLayers;
+				if(genParams.superflatLayers.empty()) {
+					genParams.noiseScale      = 0.0001f;
+					genParams.heightAmplitude = 0;
+					genParams.baseHeight      = 0;
+				}
+			} else if(h.worldType == WorldFile::WorldType::SingleBiome) {
+				genParams.forceBiome = h.singleBiome;
 			}
-			TerrainGen::Generate(*ctx.grid, *ctx.blockRegistry, genParams);
+			TerrainGen::Generate(*ctx.grid, *ctx.blockRegistry, ctx.biomeRegistry, genParams);
 
 			ctx.hotbar->SetSlot(0, GRASS);    ctx.hotbar->SetSlot(1, DIRT);
 			ctx.hotbar->SetSlot(2, STONE);    ctx.hotbar->SetSlot(3, ANDESITE);

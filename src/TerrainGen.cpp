@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "BiomeRegistry.hpp"
+
 namespace {
     float hash2(int x, int z, int channel) {
         uint32_t h = static_cast<uint32_t>(x * 1619 + z * 31337 + channel * 6971);
@@ -74,6 +76,11 @@ float TerrainGen::SampleHeightFactor(float x, float z, const Params& p) {
     const float noise   = Noise2D(x, z, p.noiseScale,   p.seed);
     const float voronoi = Voronoi2D(x, z, p.voronoiScale, p.voronoiSmoothness, p.seed);
     return std::sqrt(noise * voronoi);
+}
+
+float TerrainGen::SampleTemperature(float x, float z, const Params& p) {
+    const float n = Noise2D(x, z, 0.008f, p.seed + 9999);
+    return n * 2.0f - 1.0f;
 }
 
 float TerrainGen::SampleBiomeFactor(float x, float z, const Params& p) {
@@ -146,9 +153,25 @@ uint32_t TerrainGen::SelectBlock(const BlockRegistry& registry,
     return topIndividual ? topIndividual->blockID : fallbackID;
 }
 
-void TerrainGen::Generate(Grid& grid, const BlockRegistry& registry, const Params& p) {
+void TerrainGen::Generate(Grid& grid, const BlockRegistry& registry, const BiomeRegistry* biomes, const Params& p) {
     const int halfW = p.worldWidth  / 2;
     const int halfD = p.worldDepth  / 2;
+
+    if (!p.superflatLayers.empty()) {
+        int baseY = p.baseHeight;
+        for (const auto& layer : p.superflatLayers) {
+            for (int ly = 0; ly < layer.thickness; ++ly) {
+                for (int z = -halfD; z < halfD; ++z) {
+                    for (int x = -halfW; x < halfW; ++x) {
+                        grid.AddBlock(x, baseY + ly, z, layer.blockID);
+                    }
+                }
+            }
+            baseY += layer.thickness;
+        }
+        return;
+    }
+
     const int minY  = p.baseHeight - 4;
 
     for (int z = -halfD; z < halfD; ++z) {
@@ -158,8 +181,17 @@ void TerrainGen::Generate(Grid& grid, const BlockRegistry& registry, const Param
 
             const int surfaceY = SampleSurfaceY(fx, fz, p);
 
-            const float biomeFactor = SampleBiomeFactor(fx, fz, p);
-            const std::string& biome = (biomeFactor > 0.0f) ? "desert" : "plains";
+            std::string biome;
+            if (!p.forceBiome.empty()) {
+                biome = p.forceBiome;
+            } else if (biomes && !biomes->Biomes().empty()) {
+                const float temperature = SampleTemperature(fx, fz, p);
+                const BiomeData* bd = biomes->FindMatch(temperature, surfaceY);
+                biome = bd ? bd->id : biomes->Biomes().front().id;
+            } else {
+                const float biomeFactor = SampleBiomeFactor(fx, fz, p);
+                biome = (biomeFactor > 0.0f) ? "desert" : "plains";
+            }
 
             for (int y = minY; y <= surfaceY; ++y) {
                 const int      depth   = surfaceY - y;

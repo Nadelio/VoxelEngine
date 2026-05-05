@@ -99,6 +99,16 @@ bool WorldFile::Save(const std::string& path,
     if (header.worldType == WorldType::SingleBiome) {
         if (!writeString(f, header.singleBiome))      goto fail;
     }
+    // optional superflat layers (bottom to top)
+    if (header.worldType == WorldType::Superflat) {
+        if (header.superflatLayers.size() > 0xFF)     goto fail;
+        if (!writeU8(f, static_cast<uint8_t>(header.superflatLayers.size()))) goto fail;
+        for (const auto& layer : header.superflatLayers) {
+            if (!writeU32(f, layer.blockID))              goto fail;
+            const int t = std::max(1, std::min(255, layer.thickness));
+            if (!writeU8(f, static_cast<uint8_t>(t)))     goto fail;
+        }
+    }
     // datapack paths
     if (header.datapacks.size() > 0xFF)               goto fail;
     if (!writeU8(f, static_cast<uint8_t>(header.datapacks.size()))) goto fail;
@@ -158,6 +168,18 @@ bool WorldFile::Load(const std::string& path,
     // optional single-biome name
     if (h.worldType == WorldType::SingleBiome) {
         if (!readString(f, h.singleBiome)) goto fail;
+    }
+    // optional superflat layers
+    if (h.worldType == WorldType::Superflat) {
+        uint8_t layerCount;
+        if (!readU8(f, layerCount)) goto fail;
+        h.superflatLayers.resize(layerCount);
+        for (auto& layer : h.superflatLayers) {
+            if (!readU32(f, layer.blockID)) goto fail;
+            uint8_t thick;
+            if (!readU8(f, thick)) goto fail;
+            layer.thickness = static_cast<int>(thick);
+        }
     }
 
     // datapack paths
@@ -230,6 +252,18 @@ bool WorldFile::ReadHeader(const std::string& path, Header& headerOut) {
 
     if (h.worldType == WorldType::SingleBiome) {
         if (!readString(f, h.singleBiome)) goto fail;
+    }
+    // optional superflat layers
+    if (h.worldType == WorldType::Superflat) {
+        uint8_t layerCount;
+        if (!readU8(f, layerCount)) goto fail;
+        h.superflatLayers.resize(layerCount);
+        for (auto& layer : h.superflatLayers) {
+            if (!readU32(f, layer.blockID)) goto fail;
+            uint8_t thick;
+            if (!readU8(f, thick)) goto fail;
+            layer.thickness = static_cast<int>(thick);
+        }
     }
 
     {

@@ -5,6 +5,7 @@
 #include <string>
 
 #include "AtlasTexture.hpp"
+#include "BiomeRegistry.hpp"
 #include "BlockRegistry.hpp"
 #include "DataFormat.hpp"
 #include "TerrainGen.hpp"
@@ -105,4 +106,28 @@ inline bool LoadBlocks(const std::string& path, const AtlasTexture* atlas, Block
 		}
 	}
 	return true;
+}
+
+// Parses a biomes.data file and populates `registry`. Returns false on failure or empty result.
+inline bool LoadBiomes(const std::string& path, BiomeRegistry& registry) {
+	const auto doc = DataFormat::ParseFile(path);
+	if (!doc) return false;
+	registry.Clear();
+	for (const auto& [key, val] : doc->entries) {
+		if (key != "biome" || !val.IsObject()) continue;
+		const DataFormat::Object& obj = val.AsObject();
+		BiomeData b;
+		if (const auto* v = obj.Get("id");        v && v->IsString())      b.id            = v->AsString();
+		if (const auto* v = obj.Get("name");      v && v->IsString())      b.displayName   = v->AsString();
+		if (const auto* v = obj.Get("temp");      v && v->IsFloatRange()) {
+			b.temperatureMin = static_cast<float>(v->AsFloatRange().lo);
+			b.temperatureMax = static_cast<float>(v->AsFloatRange().hi);
+		}
+		if (const auto* v = obj.Get("elevation"); v && v->IsIntRange()) {
+			b.elevationMin = static_cast<int>(v->AsIntRange().lo);
+			b.elevationMax = static_cast<int>(v->AsIntRange().hi);
+		}
+		if (!b.id.empty()) registry.Register(b);
+	}
+	return !registry.Biomes().empty();
 }

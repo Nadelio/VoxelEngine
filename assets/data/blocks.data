@@ -16,10 +16,12 @@
 
 # Block Registry Data
 block : { id : 0, name : "GRASS", gravity : false, front : int[1, 0], back : int[1, 0], left : int[1, 0], right : int[1, 0], top : int[0, 0], bottom : int[2, 0], temp : -0.5..0.8, elevation : 0..255, depth : 0..0, biome : tag[plains, forest] }
-block : { id : 1, name : "DIRT",  gravity : false, front : int[2, 0], back : int[2, 0], left : int[2, 0], right : int[2, 0], top : int[2, 0], bottom : int[2, 0], temp : -1.0..1.0, elevation : -64..255, depth : 1..2, biome : tag[plains, forest] }
+block : { id : 1, name : "DIRT",  gravity : false, front : int[2, 0], back : int[2, 0], left : int[2, 0], right : int[2, 0], top : int[2, 0], bottom : int[2, 0], temp : -1.0..1.0, elevation : -64..255, depth : 1..2, biome : tag[all] }
 block : { id : 2, name : "STONE", gravity : false, front : int[0, 1], back : int[0, 1], left : int[0, 1], right : int[0, 1], top : int[0, 1], bottom : int[0, 1], group : tag[STONE] }
 block : { id : 3, name : "ANDESITE", gravity : false, front : int[2, 1], back : int[2, 1], left : int[2, 1], right : int[2, 1], top : int[2, 1], bottom : int[2, 1], group : tag[STONE] }
 block : { id : 4, name : "SAND",  gravity : true,  front : int[1, 1], back : int[1, 1], left : int[1, 1], right : int[1, 1], top : int[1, 1], bottom : int[1, 1], temp : 0.2..1.0, elevation : -64..64,  depth : 0..1, biome : tag[desert] }
+block : { id : 5, name : "SNOW", gravity : false, front : int[0, 2], back : int[0, 2], left : int[0, 2], right : int[0, 2], top : int[0, 2], bottom : int[0, 2], temp : -1.0..-0.5, elevation : -64..255, depth : 0..1, biome : tag[tundra] }
+# TODO: add ICE block that sits below snow and above dirt
 
 # Block Groups Data
 group : {

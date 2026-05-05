@@ -92,6 +92,7 @@ add_executable(VoxelEngine
     src/CubeMesh.cpp
     src/DataFormat.cpp
     src/DebugOverlay.cpp
+    src/FileDialog.cpp
     src/Grid.cpp
     src/Hotbar.cpp
     src/MenuSession.cpp
@@ -156,6 +157,9 @@ target_include_directories(VoxelEngine PRIVATE
 
 target_link_libraries(VoxelEngine PRIVATE ${SDL3_LINK_TARGET} OpenGL::GL)
 target_link_libraries(VoxelEngine PRIVATE imgui)
+if(WIN32)
+    target_link_libraries(VoxelEngine PRIVATE ole32 shell32)
+endif()
 
 if(WIN32)
     set(SDL3_RUNTIME_DLL "${VOXEL_LIBRARIES_ROOT}/SDL/SDL3.dll" CACHE FILEPATH "Path to SDL3.dll for standalone/runtime copy")

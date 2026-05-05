@@ -31,27 +31,16 @@
 
 /*
 TODO:
-- UI
-	- Main menu
-		- Settings
-			- Controls
-				- Edit keybinds
-			- Texture pack
-				- Load custom block_atlas.png and/or item_atlas.png
-			- Resource pack
-				- Load custom assets folder
-			- Data pack
-				- Load custom assets/data folder
-	- Pause menu
-		- Settings
-	- Worlds menu
-		- Rename world button
-	- New world menu
-		- Presets
-			- Custom superflat
-				- Choose blocks for each layer, choose how thick each layer is, choose how many layers there is
-		- Data pack
-			- Load custom assets/data folder
+- Terrain Generation
+	- Structure generation
+		- Trees
+		- Boulders
+		- Stone variant blobs
+			- Add "blob" block generation tag (generates in blobs)
+			- Add "vein" block generation tag (generates in longer strips)
+			- Add "mix" block generation tag (randomly pick between a list of mix-tagged blocks)
+				- This is the default/fallback tag
+			- Block generation tags prioritize individual blocks above block groups
 - Hand model
 	- Held block models
 	- Held item models
@@ -71,12 +60,15 @@ TODO:
 - New blocks
 	- Water
 		- Fluids
+		- Swimmming
 	- Wood
 		- Saplings
 			- Tree/crop growth
 		- Leaves
 			- Decay
 	- Clay
+	- Ice
+		- Block-based friction values
 - Survival mode
 	- Crafting
 		- Crafting table
@@ -129,6 +121,17 @@ TODO:
 		- Two layers
 			- Empty hearts/hunger/thirst layer
 			- Full/Half hearts/hunger/thirst layer
+- Terrain Generation
+	- Infinite worlds
+		- Loading/Unloading chunks based on distance from center of chunk
+- Rendering
+	- Add fog to help cover up unloaded chunks
+	- Add skybox (that rotates between night/day)
+	- Add ambient occlusion
+	- Add shadows
+	- Add global lighting (based on time of day)
+	- Add colored point lighting
+	- Add block materials (like shine for ice blocks and transparency for water)
 */
 
 using namespace std::literals::string_view_literals;
@@ -221,6 +224,7 @@ int main() {
 	const std::string physicsConstantsPath    = ResolveAssetPath("assets/data/physics_constants.data"sv);
 	const std::string blocksDataPath          = ResolveAssetPath("assets/data/blocks.data"sv);
 	const std::string keybindsDataPath        = ResolveAssetPath("assets/data/keybinds.data"sv);
+	const std::string biomesDataPath          = ResolveAssetPath("assets/data/biomes.data"sv);
 
 	// init default shader
 	Shader defaultShader;
@@ -279,6 +283,12 @@ int main() {
 		std::fprintf(stderr, "Warning: could not load '%s', using defaults.\n", keybindsDataPath.c_str());
 	}
 
+	// load biome registry
+	BiomeRegistry biomeRegistry;
+	if(!LoadBiomes(biomesDataPath, biomeRegistry)) {
+		std::fprintf(stderr, "Warning: could not load '%s', using no biomes.\n", biomesDataPath.c_str());
+	}
+
 	// init block registry from blocks.data
 	BlockRegistry blockRegistry;
 	if(!LoadBlocks(blocksDataPath, &blockAtlas, blockRegistry)) {
@@ -318,6 +328,7 @@ int main() {
 	ctx.defaultShader = &defaultShader;
 	ctx.wireframeShader = &wireframeShader;
 	ctx.blockAtlas = &blockAtlas;
+	ctx.itemAtlas  = &itemAtlas;
 	ctx.blockRegistry = &blockRegistry;
 	ctx.grid = &grid;
 	ctx.physics = &physics;
@@ -327,6 +338,7 @@ int main() {
 	ctx.hotbar = &hotbar;
 	ctx.keybinds = &keybinds;
 	ctx.debugOverlay = &debugOverlay;
+	ctx.biomeRegistry = &biomeRegistry;
 	ctx.worldsDir = worldsDir;
 	ctx.blocksDataPath = blocksDataPath;
 	ctx.physicsConstantsPath = physicsConstantsPath;
@@ -335,6 +347,7 @@ int main() {
 	// init handlers
 	WorldSession worldSession;
 	MenuSession  menuSession;
+	ctx.menuSession = &menuSession;
 
 	// main loop
 	Uint64 previousCounter = SDL_GetPerformanceCounter();
