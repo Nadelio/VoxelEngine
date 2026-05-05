@@ -166,7 +166,14 @@ elseif(UNIX AND NOT APPLE)
 endif()
 
 if(WIN32)
-    if(EXISTS "${SDL3_RUNTIME_DLL}")
+    if(TARGET SDL3-shared)
+        add_custom_command(TARGET VoxelEngine POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:SDL3-shared>"
+                "$<TARGET_FILE_DIR:VoxelEngine>/SDL3.dll"
+            COMMENT "Copying SDL3.dll to output directory"
+        )
+    elseif(EXISTS "${SDL3_RUNTIME_DLL}")
         add_custom_command(TARGET VoxelEngine POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${SDL3_RUNTIME_DLL}"
@@ -211,13 +218,22 @@ add_custom_target(standalone
     COMMENT "Creating standalone runtime folder"
 )
 
-if(WIN32 AND EXISTS "${SDL3_RUNTIME_DLL}")
-    add_custom_command(TARGET standalone POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${SDL3_RUNTIME_DLL}"
-            "${STANDALONE_OUTPUT_DIR}/SDL3.dll"
-        COMMENT "Adding SDL3.dll to standalone runtime folder"
-    )
+if(WIN32)
+    if(TARGET SDL3-shared)
+        add_custom_command(TARGET standalone POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:SDL3-shared>"
+                "${STANDALONE_OUTPUT_DIR}/SDL3.dll"
+            COMMENT "Adding SDL3.dll to standalone runtime folder"
+        )
+    elseif(EXISTS "${SDL3_RUNTIME_DLL}")
+        add_custom_command(TARGET standalone POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${SDL3_RUNTIME_DLL}"
+                "${STANDALONE_OUTPUT_DIR}/SDL3.dll"
+            COMMENT "Adding SDL3.dll to standalone runtime folder"
+        )
+    endif()
 elseif(UNIX AND NOT APPLE AND EXISTS "${SDL3_RUNTIME_SO}")
     add_custom_command(TARGET standalone POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -232,8 +248,12 @@ install(TARGETS VoxelEngine
 )
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/assets" DESTINATION .)
 
-if(WIN32 AND EXISTS "${SDL3_RUNTIME_DLL}")
-    install(FILES "${SDL3_RUNTIME_DLL}" DESTINATION . RENAME SDL3.dll)
+if(WIN32)
+    if(TARGET SDL3-shared)
+        install(FILES "$<TARGET_FILE:SDL3-shared>" DESTINATION .)
+    elseif(EXISTS "${SDL3_RUNTIME_DLL}")
+        install(FILES "${SDL3_RUNTIME_DLL}" DESTINATION . RENAME SDL3.dll)
+    endif()
 elseif(UNIX AND NOT APPLE AND EXISTS "${SDL3_RUNTIME_SO}")
     install(FILES "${SDL3_RUNTIME_SO}" DESTINATION . RENAME libSDL3.so)
 endif()

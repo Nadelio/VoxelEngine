@@ -1,0 +1,43 @@
+# Modifier keys : LC (left ctrl)   RC (right ctrl)
+#                 LS (left shift)  RS (right shift)
+#                 LA (left alt)    RA (right alt)
+# Letter keys   : lowercase  a b c ... z
+# Number keys   : 0 1 2 ... 9
+# Misc keys     : ES (esc)  CL (capslock)  B (backspace)  EN (enter)
+#                 D (delete)  T (tab)  SP (space)
+# Function keys : F1 F2 F3 ... F12
+# Special chars : \< \> \+ \\ (literal <  >  +  \)
+
+# general
+quit                 : <ES>
+move_forward         : <w>
+move_back            : <s>
+move_left            : <a>
+move_right           : <d>
+jump                 : <SP>
+crouch               : <LC>
+crawl_toggle         : <LC+LS>
+
+# hotbar
+hotbar_1             : <1>
+hotbar_2             : <2>
+hotbar_3             : <3>
+hotbar_4             : <4>
+hotbar_5             : <5>
+hotbar_6             : <6>
+hotbar_7             : <7>
+hotbar_8             : <8>
+hotbar_9             : <9>
+
+# debug
+debug_toggle         : <F3>
+debug_wireframe      : <F3+w>
+debug_block          : <F3+b>
+debug_face           : <F3+f>
+debug_data           : <F3+d>
+debug_wireframe_only : <F3+t>
+debug_stance         : <F3+s>
+debug_velocity       : <F3+v>
+debug_reload         : <F3+h>
+debug_save           : <F3+e>
+debug_load           : <F3+l>

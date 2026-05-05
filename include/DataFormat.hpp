@@ -18,6 +18,9 @@ namespace DataFormat {
     /// An inclusive range whose endpoints are (or include) floats, e.g. 0.0..1.0.
     struct FloatRange { double  lo, hi; };
 
+    /// A keybind chord literal, e.g. <F3+w>. Each element is a key token string.
+    struct Keybind { std::vector<std::string> keys; };
+
     struct Value;
 
     /// A homogeneous, typed array literal, e.g. float[0.5, 1.0, 2.5].
@@ -46,7 +49,8 @@ namespace DataFormat {
             IntRange,         /// integer range   n..m
             FloatRange,       /// float range     n..m
             TypedArray,       /// typed array     type[...]
-            Object            /// inline object   { key : value, ... }
+            Object,           /// inline object   { key : value, ... }
+            Keybind           /// keybind chord   <key+key+...>
         >;
         Variant data;
 
@@ -60,6 +64,7 @@ namespace DataFormat {
         explicit Value(FloatRange  v) : data(std::in_place_type<FloatRange>, v)     {}
         explicit Value(TypedArray  v) : data(std::in_place_type<TypedArray>, std::move(v)) {}
         explicit Value(Object      v) : data(std::in_place_type<Object>,     std::move(v)) {}
+        explicit Value(Keybind     v) : data(std::in_place_type<Keybind>,    std::move(v)) {}
 
         bool IsNull()       const { return std::holds_alternative<std::monostate>(data); }
         bool IsInt()        const { return std::holds_alternative<int64_t>      (data); }
@@ -71,6 +76,7 @@ namespace DataFormat {
         bool IsFloatRange() const { return std::holds_alternative<FloatRange>   (data); }
         bool IsArray()      const { return std::holds_alternative<TypedArray>   (data); }
         bool IsObject()     const { return std::holds_alternative<Object>       (data); }
+        bool IsKeybind()    const { return std::holds_alternative<Keybind>      (data); }
 
         int64_t            AsInt()        const { return std::get<int64_t>    (data); }
         double             AsFloat()      const { return std::get<double>     (data); }
@@ -81,6 +87,7 @@ namespace DataFormat {
         const FloatRange&  AsFloatRange() const { return std::get<FloatRange> (data); }
         const TypedArray&  AsArray()      const { return std::get<TypedArray> (data); }
         const Object&      AsObject()     const { return std::get<Object>     (data); }
+        const Keybind&     AsKeybind()    const { return std::get<Keybind>    (data); }
     };
 
     /// A parsed .data file: an ordered sequence of top-level key-value entries.

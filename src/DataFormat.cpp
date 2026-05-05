@@ -38,7 +38,8 @@ namespace DataFormat {
             RBrace,
             Newline,
             End,
-            Error
+            Error,
+            Keybind
         };
 
         struct Token {
@@ -85,6 +86,8 @@ namespace DataFormat {
                 if (c == ']') { ++pos; return {TK::RBracket, "]",  line}; }
                 if (c == '{') { ++pos; return {TK::LBrace,   "{",  line}; }
                 if (c == '}') { ++pos; return {TK::RBrace,   "}",  line}; }
+
+                if (c == '<') return scanKeybind();
 
                 if (c == '.') {
                     if (pos + 1 < src.size() && src[pos + 1] == '.') {
@@ -133,6 +136,24 @@ namespace DataFormat {
                 }
                 if (pos < src.size() && src[pos] == '"') ++pos;
                 return {TK::String, std::move(result), startLine};
+            }
+
+            Token scanKeybind() {
+                const int startLine = line;
+                ++pos; // consume '<'
+                std::string raw;
+                while (pos < src.size() && src[pos] != '>' && src[pos] != '\n') {
+                    if (src[pos] == '\\' && pos + 1 < src.size()) {
+                        raw += '\\';
+                        raw += src[pos + 1];
+                        pos += 2;
+                    } else {
+                        raw += src[pos];
+                        ++pos;
+                    }
+                }
+                if (pos < src.size() && src[pos] == '>') ++pos; // consume '>'
+                return {TK::Keybind, std::move(raw), startLine};
             }
 
             Token scanIdent() {
@@ -239,6 +260,10 @@ namespace DataFormat {
 
             Value parseValue() {
                 if (failed()) return Value{};
+
+                if (current.kind == TK::Keybind) {
+                    return parseKeybind();
+                }
 
                 if (current.kind == TK::Integer || current.kind == TK::Float) {
                     double loVal = 0.0;
@@ -352,6 +377,27 @@ namespace DataFormat {
                 error = "line " + std::to_string(current.line) +
                         ": unexpected token '" + current.text + "' in value position";
                 return Value{};
+            }
+
+            Value parseKeybind() {
+                const std::string raw = current.text;
+                advance();
+                Keybind kb;
+                std::string tok;
+                for (std::size_t i = 0; i < raw.size(); ) {
+                    if (raw[i] == '\\' && i + 1 < raw.size()) {
+                        tok += raw[i + 1];
+                        i += 2;
+                    } else if (raw[i] == '+') {
+                        if (!tok.empty()) { kb.keys.push_back(tok); tok.clear(); }
+                        ++i;
+                    } else {
+                        tok += raw[i];
+                        ++i;
+                    }
+                }
+                if (!tok.empty()) kb.keys.push_back(tok);
+                return Value(std::move(kb));
             }
 
             std::optional<Document> parseDocument() {
