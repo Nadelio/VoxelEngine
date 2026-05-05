@@ -24,13 +24,17 @@
 #include "TerrainGen.hpp"
 #include "WorldFile.hpp"
 
-void WorldSession::Enter(AppContext& ctx, const WorldFile::Header& header) {
+void WorldSession::Enter(AppContext& ctx, const WorldFile::Header& header, const std::string& savePath) {
 	ctx.currentSeed = header.seed;
-	const std::string filename = "worlds/" + std::to_string(ctx.currentSeed) + ".world";
-	if(const char* base = SDL_GetBasePath())
-		ctx.worldSavePath = std::string(base) + filename;
-	else
-		ctx.worldSavePath = filename;
+	if (!savePath.empty()) {
+		ctx.worldSavePath = savePath;
+	} else {
+		const std::string filename = "worlds/" + std::to_string(ctx.currentSeed) + ".world";
+		if(const char* base = SDL_GetBasePath())
+			ctx.worldSavePath = std::string(base) + filename;
+		else
+			ctx.worldSavePath = filename;
+	}
 
 	ctx.grid->RebuildVisibility();
 

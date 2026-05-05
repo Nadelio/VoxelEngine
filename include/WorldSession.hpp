@@ -31,7 +31,8 @@ struct WorldSession {
 
 	// Called when transitioning from a menu into gameplay.
 	// Sets spawn position, world save path, and enables mouse capture.
-	void Enter(AppContext& ctx, const WorldFile::Header& header);
+	// `savePath` is the file to save to; if empty the seed-based default path is used.
+	void Enter(AppContext& ctx, const WorldFile::Header& header, const std::string& savePath = "");
 
 	// Feed one SDL event to the world session. Only acts while PLAYING or PAUSE_MENU.
 	void ProcessEvent(const SDL_Event& event, AppContext& ctx);

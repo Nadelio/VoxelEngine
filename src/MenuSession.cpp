@@ -35,13 +35,17 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 		if(wantBack) { ctx.gameState = GameState::MAIN_MENU; }
 
 	} else if(ctx.gameState == GameState::WORLDS_MENU) {
-		bool         wantLoad = false, wantNew = false, wantDelete = false, wantBack = false;
-		std::string  loadPath, loadName;
+		bool wantLoad = false,
+             wantNew = false,
+             wantDelete = false,
+             wantRename = false,
+             wantBack = false;
+		std::string  loadPath, loadName, renameNewName;
 		WorldFile::Header loadHeader;
 
 		DrawWorldsMenu(ctx.worldsDir, worldEntries, selectedIdx,
 		               wantLoad, loadPath, loadName, loadHeader,
-		               wantNew, wantDelete, wantBack,
+		               wantNew, wantDelete, wantRename, renameNewName, wantBack,
 		               winW, winH);
 
 		if(wantBack) { ctx.gameState = GameState::MAIN_MENU; }
@@ -53,6 +57,21 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 			selectedIdx = -1;
 		}
 
+		if(wantRename && selectedIdx >= 0 && selectedIdx < static_cast<int>(worldEntries.size())) {
+			namespace fs = std::filesystem;
+			const fs::path oldFsPath(worldEntries[selectedIdx].path);
+			const fs::path newFsPath = oldFsPath.parent_path() / (renameNewName + ".world");
+			if(!fs::exists(newFsPath)) {
+				std::error_code ec;
+				fs::rename(oldFsPath, newFsPath, ec);
+				if(ec) std::fprintf(stderr, "Warning: failed to rename world: %s\n", ec.message().c_str());
+			} else {
+				std::fprintf(stderr, "Warning: a world named '%s' already exists\n", renameNewName.c_str());
+			}
+			worldEntries.clear();
+			selectedIdx = -1;
+		}
+
 		if(wantLoad) {
 			ctx.grid->Clear();
 			WorldFile::Header h;
@@ -60,7 +79,7 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 				ctx.hotbar->SetSlot(0, GRASS);    ctx.hotbar->SetSlot(1, DIRT);
 				ctx.hotbar->SetSlot(2, STONE);    ctx.hotbar->SetSlot(3, ANDESITE);
 				ctx.hotbar->SetSlot(4, SAND);
-				worldSession.Enter(ctx, h);
+				worldSession.Enter(ctx, h, loadPath);
 				ctx.gameState = GameState::PLAYING;
 			} else {
 				std::fprintf(stderr, "Warning: failed to load world '%s'\n", loadPath.c_str());
@@ -98,7 +117,7 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 			const std::string newPath = ctx.worldsDir + std::to_string(h.seed) + ".world";
 			WorldFile::Save(newPath, h, *ctx.grid);
 
-			worldSession.Enter(ctx, h);
+			worldSession.Enter(ctx, h, newPath);
 			ctx.gameState = GameState::PLAYING;
 		}
 	}

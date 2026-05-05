@@ -106,7 +106,7 @@ inline bool DrawMainMenu(GameState& next, bool& wantQuit, int winW, int winH) {
 // `wantNew`       – set true when user presses New World
 // `wantBack`      – set true when user presses Back
 // `entries`       – world list (refreshed here when empty or on Refresh click)
-inline void DrawWorldsMenu(const std::string& worldsDir, std::vector<WorldEntry>& entries, int& selectedIndex, bool& wantLoad, std::string& loadPath, std::string& loadName, WorldFile::Header& loadHeader, bool& wantNew, bool& wantDelete, bool& wantBack, int winW, int winH)
+inline void DrawWorldsMenu(const std::string& worldsDir, std::vector<WorldEntry>& entries, int& selectedIndex, bool& wantLoad, std::string& loadPath, std::string& loadName, WorldFile::Header& loadHeader, bool& wantNew, bool& wantDelete, bool& wantRename, std::string& renameNewName, bool& wantBack, int winW, int winH)
 {
     if (entries.empty()) entries = ScanWorlds(worldsDir);
 
@@ -124,7 +124,7 @@ inline void DrawWorldsMenu(const std::string& worldsDir, std::vector<WorldEntry>
     ImGui::Separator();
     ImGui::Spacing();
 
-    const float listHeight = h - 120.0f;
+    const float listHeight = h - 170.0f;
     ImGui::BeginChild("##world_list", ImVec2(0, listHeight), true);
     if (entries.empty()) {
         ImGui::TextDisabled("(no worlds found)");
@@ -154,7 +154,11 @@ inline void DrawWorldsMenu(const std::string& worldsDir, std::vector<WorldEntry>
 
     ImGui::Spacing();
 
-    const float btnW = 110.0f;
+    // Two rows of three buttons that fill the available width.
+    const float spacing = ImGui::GetStyle().ItemSpacing.x;
+    const float btnW    = (ImGui::GetContentRegionAvail().x - spacing * 2.0f) / 3.0f;
+
+    // first row
     if (ImGui::Button("Load", ImVec2(btnW, 0))) {
         if (selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size())) {
             wantLoad = true;
@@ -166,6 +170,33 @@ inline void DrawWorldsMenu(const std::string& worldsDir, std::vector<WorldEntry>
     ImGui::SameLine();
     if (ImGui::Button("New World", ImVec2(btnW, 0))) { wantNew = true; }
     ImGui::SameLine();
+    {
+        static char renameBuf[256] = {};
+        if (ImGui::Button("Rename World", ImVec2(btnW, 0))) {
+            if (selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size())) {
+                std::snprintf(renameBuf, sizeof(renameBuf), "%s", entries[selectedIndex].name.c_str());
+                ImGui::OpenPopup("Rename World##popup");
+            }
+        }
+        if (ImGui::BeginPopupModal("Rename World##popup", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("New name:");
+            ImGui::SetNextItemWidth(250.0f);
+            if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+            const bool confirmed = ImGui::InputText("##rename_input", renameBuf, sizeof(renameBuf),
+                                                    ImGuiInputTextFlags_EnterReturnsTrue);
+            ImGui::Spacing();
+            if ((ImGui::Button("Confirm", ImVec2(120, 0)) || confirmed) && renameBuf[0] != '\0') {
+                renameNewName = renameBuf;
+                wantRename    = true;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); }
+            ImGui::EndPopup();
+        }
+    }
+
+    // second row
     if (ImGui::Button("Delete", ImVec2(btnW, 0))) {
         if (selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size())) {
             wantDelete = true;

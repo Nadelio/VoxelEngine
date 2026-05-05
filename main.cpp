@@ -9,6 +9,9 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_opengl.h>
 
+// imgui
+#include <imgui.h>
+
 // voxel engine
 #include "AtlasTexture.hpp"
 #include "BlockRegistry.hpp"
@@ -21,8 +24,6 @@
 #include "PhysicsConstants.hpp"
 #include "Shader.hpp"
 #include "WorldFile.hpp"
-
-// session / context
 #include "AppContext.hpp"
 #include "AssetLoader.hpp"
 #include "MenuSession.hpp"
@@ -261,6 +262,7 @@ int main() {
 		std::fprintf(stderr, "DebugOverlay (ImGui) initialization failed.\n");
 		quit(1);
 	}
+	const ImGuiStyle imguiDefaultStyle = ImGui::GetStyle(); // snapshot clean defaults for scaling
 
 	// init hotbar
 	Hotbar hotbar;
@@ -319,7 +321,7 @@ int main() {
 	ctx.blockRegistry = &blockRegistry;
 	ctx.grid = &grid;
 	ctx.physics = &physics;
-	ctx. = &physicsConstants;
+	ctx.physicsConstants = &physicsConstants;
 	ctx.camera = &camera;
 	ctx.player = &player;
 	ctx.hotbar = &hotbar;
@@ -385,6 +387,24 @@ int main() {
 		// sync window size and viewport
 		SDL_GetWindowSize(window.get(), &winWidth, &winHeight);
 		glViewport(0, 0, winWidth, winHeight);
+
+		// scale ImGui proportionally to window height (900 px = 1x reference)
+		if (winHeight > 0) {
+			static float prevUiScale = -1.0f;
+			const float uiScale = std::max(0.5f, std::min(2.0f,
+			                          static_cast<float>(winHeight) / 900.0f));
+			if (uiScale != prevUiScale) {
+				ImGui::GetStyle() = imguiDefaultStyle; // restore clean baseline
+				ImGui::GetStyle().ScaleAllSizes(uiScale);
+				ImGuiStyle& s = ImGui::GetStyle();
+				s.SeparatorSize          = std::max(1.0f, s.SeparatorSize);
+				s.SeparatorTextBorderSize = std::max(1.0f, s.SeparatorTextBorderSize);
+				s.WindowBorderSize       = std::max(1.0f, s.WindowBorderSize);
+				s.PopupBorderSize        = std::max(1.0f, s.PopupBorderSize);
+				ImGui::GetIO().FontGlobalScale = uiScale;
+				prevUiScale = uiScale;
+			}
+		}
 
 		// clear
 		glClearColor(0.08f, 0.10f, 0.14f, 1.0f);
