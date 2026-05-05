@@ -110,7 +110,8 @@ inline KeyChord ChordFromKeybind(const DataFormat::Keybind& kb) {
 
 // Keybinds – all named actions with their default chords.
 struct Keybinds {
-    KeyChord quit           = KeyChord{{SDL_SCANCODE_ESCAPE}};
+    KeyChord quit           = KeyChord{{SDL_SCANCODE_F4, SDL_SCANCODE_RALT}};
+    KeyChord pause          = KeyChord{{SDL_SCANCODE_ESCAPE}};
     KeyChord move_forward   = KeyChord{{SDL_SCANCODE_W}};
     KeyChord move_back      = KeyChord{{SDL_SCANCODE_S}};
     KeyChord move_left      = KeyChord{{SDL_SCANCODE_A}};

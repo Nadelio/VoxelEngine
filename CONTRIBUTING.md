@@ -38,6 +38,108 @@ cmake --build build -j
     - Unless you can convince me you know what you are doing and can make it better
 - Add any config files specific to your local environment to the [.gitignore](.gitignore)
 - Do not edit [main.yml](.github/workflows/main.yml)
-- Don't edit [README](README.md)
+- Do not edit [README](README.md)
     - I will add your Github profile to the [Contributors section](README.md#contributors) of the [README](README.md)
+- Do not edit [CONTRIBUTING.md](CONTRIBUTING.md)
+	- I will update TODO list as part of merge request chores
 - No AI-generated source code
+
+## TODO:
+- UI
+	- Main menu
+		- Settings
+			- Controls
+				- Edit keybinds
+			- Texture pack
+				- Load custom block_atlas.png and/or item_atlas.png
+			- Resource pack
+				- Load custom assets folder
+			- Data pack
+				- Load custom assets/data folder
+	- Pause menu
+		- Settings
+	- Worlds menu
+		- Rename world button
+	- New world menu
+		- Presets
+			- Custom superflat
+				- Choose blocks for each layer, choose how thick each layer is, choose how many layers there is
+		- Data pack
+			- Load custom assets/data folder
+- Hand model
+	- Held block models
+	- Held item models
+	- Interaction animations
+		- Breaking block (swing hand)
+		- Placing block (swing hand)
+		- Picking block (point)
+- Player model
+	- Skins
+	- Capes
+	- Movement animations (first person and third person)
+		- Walking animation
+		- Sprinting animation
+		- Jumping animation
+		- Crouching animation
+		- Crawling animation
+- New blocks
+	- Water
+		- Fluids
+	- Wood
+		- Saplings
+			- Tree/crop growth
+		- Leaves
+			- Decay
+	- Clay
+- Survival mode
+	- Crafting
+		- Crafting table
+			- Block UI
+			- Block interaction
+	- Items
+		- Dropped item and block models
+		- Stone and Wood Tools
+			- Pickaxe
+			- Shovel
+			- Axe
+			- Hoe
+		- Food
+			- Dough
+				- Flour
+					- Bread
+						- Wheat
+							- Wheat seeds
+						- Furnace
+							- Block inventories
+							- Block processing
+				- Water
+					- Water container
+						- Clay
+						- Item inventories
+	- Hunger
+	- Thirst
+	- Health
+		- Damage sources
+			- Starvation
+			- Dehydration
+			- Drowning
+			- Suffocating
+			- Burning
+				- Fire block
+					- Blocks with no collision
+					- Blocks that place blocks (fire spreading)
+	- Mining
+	- Farming
+		- Use hoe to plow ground
+		- Right click to place sapling or wheat seeds
+		- Right click with dirt to cover
+		- Right click with filled clay bowl to water
+- UI
+	- Add inventory texture
+	- Add hotbar texture
+	- Add crafting texture
+	- Add furnace texture
+	- Health, Hunger, Thirst UIs
+		- Two layers
+			- Empty hearts/hunger/thirst layer
+			- Full/Half hearts/hunger/thirst layer

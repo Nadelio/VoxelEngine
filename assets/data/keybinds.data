@@ -9,7 +9,7 @@
 # Special chars : \< \> \+ \\ (literal <  >  +  \)
 
 # general
-quit                 : <ES>
+quit                 : <LA+F4>
 move_forward         : <w>
 move_back            : <s>
 move_left            : <a>

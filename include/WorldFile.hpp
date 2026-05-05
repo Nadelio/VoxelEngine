@@ -58,4 +58,8 @@ struct WorldFile {
     static bool Load(const std::string& path,
                      Header& headerOut,
                      Grid& grid);
+
+    // Read only the header from a world file, without loading block data.
+    // Useful for listing worlds without the memory cost of loading the full grid.
+    static bool ReadHeader(const std::string& path, Header& headerOut);
 };
