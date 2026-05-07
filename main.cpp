@@ -57,6 +57,9 @@ TODO:
 		- Jumping animation
 		- Crouching animation
 		- Crawling animation
+- UI
+	- Add F1 keybind to hide all UI and 1st person view model
+	- Add F2 keybind to take a screenshot of the game
 - New blocks
 	- Water
 		- Fluids
@@ -124,6 +127,8 @@ TODO:
 - Terrain Generation
 	- Infinite worlds
 		- Loading/Unloading chunks based on distance from center of chunk
+	- Cave generation
+	- Move world surface from y = 0 to y = 255
 - Rendering
 	- Add fog to help cover up unloaded chunks
 	- Add skybox (that rotates between night/day)
@@ -131,7 +136,7 @@ TODO:
 	- Add shadows
 	- Add global lighting (based on time of day)
 	- Add colored point lighting
-	- Add block materials (like shine for ice blocks and transparency for water)
+	- Add block materials (like shine for ice blocks and transparency for water and glass)
 */
 
 using namespace std::literals::string_view_literals;
