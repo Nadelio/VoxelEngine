@@ -39,18 +39,7 @@ bool Physics::IntersectsWorld(const AABB& aabb) const {
     const int maxX = static_cast<int>(std::floor(aabb.max.x + 0.5f - 0.0001f));
     const int maxY = static_cast<int>(std::floor(aabb.max.y + 0.5f - 0.0001f));
     const int maxZ = static_cast<int>(std::floor(aabb.max.z + 0.5f - 0.0001f));
-
-    for (int x = minX; x <= maxX; ++x) {
-        for (int y = minY; y <= maxY; ++y) {
-            for (int z = minZ; z <= maxZ; ++z) {
-                if (grid_.HasBlockAt({x, y, z})) {
-                    return true;
-                }
-            }
-        }
-    }
-
-    return false;
+    return grid_.HasAnyBlockInRange({minX, minY, minZ}, {maxX, maxY, maxZ});
 }
 
 bool Physics::MoveEntityAxis(Entity& entity, int axis, float delta) const {
@@ -205,12 +194,11 @@ void Physics::StepBlockGravity(float deltaSeconds) {
         blockGravityAccumulator_ -= kBlockStepSeconds;
 
         std::vector<std::pair<glm::ivec3, uint32_t>> gravityBlocks;
-        grid_.VisitBlocks([&](const glm::ivec3& pos, uint32_t blockID) {
-            const BlockData* data = registry_.Get(blockID);
-            if (data && data->affectedByGravity) {
+        for (const glm::ivec3& pos : grid_.GravityBlocks()) {
+            const uint32_t blockID = grid_.GetBlockID(pos);
+            if (blockID != 0)
                 gravityBlocks.emplace_back(pos, blockID);
-            }
-        });
+        }
 
         std::sort(gravityBlocks.begin(), gravityBlocks.end(),
                   [](const std::pair<glm::ivec3, uint32_t>& a,

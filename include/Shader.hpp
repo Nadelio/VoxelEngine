@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_opengl.h>
@@ -29,4 +30,5 @@ private:
     static bool CheckProgramLink(GLuint program);
 
     GLuint program_ = 0;
+    mutable std::unordered_map<std::string, GLint> locationCache_;
 };

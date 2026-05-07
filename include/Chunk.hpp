@@ -23,6 +23,7 @@ public:
     Chunk& operator=(const Chunk&) = delete;
 
     bool HasBlock(int lx, int ly, int lz) const;
+    uint32_t GetBlockID(int lx, int ly, int lz) const;
     void SetBlock(int lx, int ly, int lz, uint32_t blockID);
     bool RemoveBlock(int lx, int ly, int lz);
 
@@ -51,6 +52,7 @@ public:
 
     bool IsEmpty() const { return blockCount_ == 0; }
     int BlockCount() const { return blockCount_; }
+    int IndexCount() const { return indexCount_; }
 
 private:
     bool EnsureGPUResources();

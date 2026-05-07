@@ -1,176 +1,57 @@
 #include "FileDialog.hpp"
 
-#ifdef _WIN32 // fucking hate how much BS I need for Windows compared to Linux
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <windows.h>
-#include <shobjidl.h>
+#include <SDL3/SDL.h>
+#include <atomic>
 #include <string>
 
 namespace {
-    static std::string WideToUtf8(LPCWSTR wstr) {
-        if (!wstr) return {};
-        const int len = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, nullptr, 0, nullptr, nullptr);
-        if (len <= 1) return {};
-        std::string s(static_cast<std::size_t>(len - 1), '\0');
-        WideCharToMultiByte(CP_UTF8, 0, wstr, -1, s.data(), len, nullptr, nullptr);
-        return s;
+    struct DialogResult {
+        std::string       path;
+        std::atomic<bool> done{false};
+    };
+
+    static void SDLCALL OnDialogResult(void* userdata, const char* const* filelist, int /*filter*/) {
+        auto* res = static_cast<DialogResult*>(userdata);
+        if (filelist && *filelist)
+            res->path = *filelist;
+        res->done.store(true, std::memory_order_release);
     }
 
-    static std::wstring Utf8ToWide(const char* str) {
-        if (!str || !*str) return {};
-        const int len = MultiByteToWideChar(CP_UTF8, 0, str, -1, nullptr, 0);
-        if (len <= 1) return {};
-        std::wstring ws(static_cast<std::size_t>(len - 1), L'\0');
-        MultiByteToWideChar(CP_UTF8, 0, str, -1, ws.data(), len);
-        return ws;
+    static std::string ToSdlPattern(const char* filter) {
+        if (!filter || !*filter) return "*";
+        std::string pat(filter);
+        if (pat.size() >= 2 && pat[0] == '*' && pat[1] == '.')
+            pat = pat.substr(2);
+        return pat.empty() ? "*" : pat;
+    }
+
+    static void PumpUntilDone(DialogResult& res) {
+        while (!res.done.load(std::memory_order_acquire)) {
+            SDL_PumpEvents();
+            SDL_Delay(1);
+        }
     }
 }
 
 std::string OpenNativeFileDialog(const char* title, const char* filter) {
-    std::string result;
-    const HRESULT hrCom = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
-    const bool needUninit = (hrCom == S_OK);
-
-    IFileOpenDialog* pDlg = nullptr;
-    if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_ALL,
-                                   IID_IFileOpenDialog, reinterpret_cast<void**>(&pDlg)))) {
-        if (title) {
-            const std::wstring wt = Utf8ToWide(title);
-            pDlg->SetTitle(wt.c_str());
-        }
-        if (filter) {
-            const std::wstring wSpec  = Utf8ToWide(filter);
-            const std::wstring wLabel = L"Files (" + wSpec + L")";
-            const COMDLG_FILTERSPEC specs[2] = {
-                {wLabel.c_str(), wSpec.c_str()},
-                {L"All Files",   L"*.*"},
-            };
-            pDlg->SetFileTypes(2, specs);
-        }
-        if (SUCCEEDED(pDlg->Show(nullptr))) {
-            IShellItem* pItem = nullptr;
-            if (SUCCEEDED(pDlg->GetResult(&pItem))) {
-                PWSTR pszPath = nullptr;
-                if (SUCCEEDED(pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszPath))) {
-                    result = WideToUtf8(pszPath);
-                    CoTaskMemFree(pszPath);
-                }
-                pItem->Release();
-            }
-        }
-        pDlg->Release();
+    DialogResult res;
+    if (filter) {
+        const std::string pat = ToSdlPattern(filter);
+        const SDL_DialogFileFilter filters[] = {
+            { filter,      pat.c_str() },
+            { "All Files", "*"         },
+        };
+        SDL_ShowOpenFileDialog(OnDialogResult, &res, nullptr, filters, 2, nullptr, false);
+    } else {
+        SDL_ShowOpenFileDialog(OnDialogResult, &res, nullptr, nullptr, 0, nullptr, false);
     }
-
-    if (needUninit) CoUninitialize();
-    return result;
+    PumpUntilDone(res);
+    return res.path;
 }
 
 std::string OpenNativeFolderDialog(const char* title) {
-    std::string result;
-    const HRESULT hrCom = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
-    const bool needUninit = (hrCom == S_OK);
-
-    IFileOpenDialog* pDlg = nullptr;
-    if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_ALL,
-                                   IID_IFileOpenDialog, reinterpret_cast<void**>(&pDlg)))) {
-        FILEOPENDIALOGOPTIONS opts = 0;
-        pDlg->GetOptions(&opts);
-        pDlg->SetOptions(opts | FOS_PICKFOLDERS);
-        if (title) {
-            const std::wstring wt = Utf8ToWide(title);
-            pDlg->SetTitle(wt.c_str());
-        }
-        if (SUCCEEDED(pDlg->Show(nullptr))) {
-            IShellItem* pItem = nullptr;
-            if (SUCCEEDED(pDlg->GetResult(&pItem))) {
-                PWSTR pszPath = nullptr;
-                if (SUCCEEDED(pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszPath))) {
-                    result = WideToUtf8(pszPath);
-                    CoTaskMemFree(pszPath);
-                }
-                pItem->Release();
-            }
-        }
-        pDlg->Release();
-    }
-
-    if (needUninit) CoUninitialize();
-    return result;
+    DialogResult res;
+    SDL_ShowOpenFolderDialog(OnDialogResult, &res, nullptr, nullptr, false);
+    PumpUntilDone(res);
+    return res.path;
 }
-
-#else // Like look how much LESS code I need for Linux/POSIX
-
-#include <cstdio>
-
-namespace {
-    static bool ToolExists(const char* name) {
-        std::string cmd = std::string("which ") + name + " >/dev/null 2>&1";
-        FILE* const p = popen(cmd.c_str(), "r");
-        if (!p) return false;
-        return pclose(p) == 0;
-    }
-
-    static std::string RunDialog(const std::string& cmd) {
-        FILE* const pipe = popen(cmd.c_str(), "r");
-        if (!pipe) return {};
-        std::string result;
-        char buf[4096];
-        while (std::fgets(buf, sizeof(buf), pipe)) result += buf;
-        if (pclose(pipe) != 0) return {};
-        while (!result.empty() && (result.back() == '\n' || result.back() == '\r'))
-            result.pop_back();
-        return result;
-    }
-
-    static std::string ShellQuote(const std::string& s) {
-        std::string out = "'";
-        for (const char c : s) {
-            if (c == '\'') out += "'\\''";
-            else           out += c;
-        }
-        return out + "'";
-    }
-}
-
-std::string OpenNativeFileDialog(const char* title, const char* filter) {
-    const std::string t = title ? title : "Open File";
-
-    if (ToolExists("zenity")) {
-        std::string cmd = "zenity --file-selection --title=" + ShellQuote(t);
-        if (filter && *filter) {
-            cmd += " --file-filter=" + ShellQuote(std::string("Files | ") + filter);
-            cmd += " --file-filter=" + ShellQuote("All Files | *");
-        }
-        cmd += " 2>/dev/null";
-        return RunDialog(cmd);
-    }
-
-    if (ToolExists("kdialog")) {
-        std::string cmd = "kdialog --getopenfilename /";
-        if (filter && *filter)
-            cmd += " " + ShellQuote(filter);
-        cmd += " --title " + ShellQuote(t) + " 2>/dev/null";
-        return RunDialog(cmd);
-    }
-
-    return {};
-}
-
-std::string OpenNativeFolderDialog(const char* title) {
-    const std::string t = title ? title : "Open Folder";
-
-    if (ToolExists("zenity")) {
-        return RunDialog("zenity --file-selection --directory --title=" +
-                         ShellQuote(t) + " 2>/dev/null");
-    }
-
-    if (ToolExists("kdialog")) {
-        return RunDialog("kdialog --getexistingdirectory / --title " +
-                         ShellQuote(t) + " 2>/dev/null");
-    }
-
-    return {};
-}
-
-#endif

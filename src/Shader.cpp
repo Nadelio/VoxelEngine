@@ -110,6 +110,7 @@ bool Shader::CheckProgramLink(GLuint program) {
 }
 
 bool Shader::LoadFromFiles(const std::string& vertexPath, const std::string& fragmentPath) {
+    locationCache_.clear();
     if (!LoadOpenGLFunctions()) {
         SDL_Log("Failed to load OpenGL shader functions.");
         return false;
@@ -168,28 +169,32 @@ void Shader::Use() const {
 
 void Shader::SetMat4(const char* name, const float* matrix) const {
     assert(pglGetUniformLocation && pglUniformMatrix4fv && program_ != 0);
-
-    const GLint loc = pglGetUniformLocation(program_, name);
-    pglUniformMatrix4fv(loc, 1, GL_FALSE, matrix);
+    auto it = locationCache_.find(name);
+    if (it == locationCache_.end())
+        it = locationCache_.emplace(name, pglGetUniformLocation(program_, name)).first;
+    pglUniformMatrix4fv(it->second, 1, GL_FALSE, matrix);
 }
 
 void Shader::SetInt(const char* name, int value) const {
     assert(pglGetUniformLocation && pglUniform1i && program_ != 0);
-
-    const GLint loc = pglGetUniformLocation(program_, name);
-    pglUniform1i(loc, value);
+    auto it = locationCache_.find(name);
+    if (it == locationCache_.end())
+        it = locationCache_.emplace(name, pglGetUniformLocation(program_, name)).first;
+    pglUniform1i(it->second, value);
 }
 
 void Shader::SetVec4(const char* name, float x, float y, float z, float w) const {
     assert(pglGetUniformLocation && pglUniform4f && program_ != 0);
-
-    const GLint loc = pglGetUniformLocation(program_, name);
-    pglUniform4f(loc, x, y, z, w);
+    auto it = locationCache_.find(name);
+    if (it == locationCache_.end())
+        it = locationCache_.emplace(name, pglGetUniformLocation(program_, name)).first;
+    pglUniform4f(it->second, x, y, z, w);
 }
 
 void Shader::SetVec2(const char* name, float x, float y) const {
     assert(pglGetUniformLocation && pglUniform2f && program_ != 0);
-
-    const GLint loc = pglGetUniformLocation(program_, name);
-    pglUniform2f(loc, x, y);
+    auto it = locationCache_.find(name);
+    if (it == locationCache_.end())
+        it = locationCache_.emplace(name, pglGetUniformLocation(program_, name)).first;
+    pglUniform2f(it->second, x, y);
 }

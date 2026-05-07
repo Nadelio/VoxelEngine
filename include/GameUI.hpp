@@ -63,7 +63,7 @@ struct NewWorldParams {
 
     WorldFile::Header MakeHeader(const BiomeRegistry* biomes = nullptr) const {
         WorldFile::Header h;
-        h.seed      = seedBuf[0] ? std::atoi(seedBuf) : 0;
+        h.seed      = seedBuf[0] ? std::strtoll(seedBuf, nullptr, 10) : 0LL;
         h.worldType = static_cast<WorldFile::WorldType>(worldTypeIdx);
         if (h.worldType == WorldFile::WorldType::SingleBiome && biomes) {
             const auto& blist = biomes->Biomes();
@@ -155,8 +155,8 @@ inline void DrawWorldsMenu(const std::string& worldsDir, std::vector<WorldEntry>
         else if (we.header.worldType == WorldFile::WorldType::Superflat) typeStr = "Superflat";
 
         char label[256];
-        std::snprintf(label, sizeof(label), "%s  [%s, seed %d]##%d",
-                      we.name.c_str(), typeStr, we.header.seed, i);
+        std::snprintf(label, sizeof(label), "%s  [%s, seed %lld]##%d",
+                      we.name.c_str(), typeStr, (long long)we.header.seed, i);
 
         if (ImGui::Selectable(label, selectedIndex == i,
                               ImGuiSelectableFlags_AllowDoubleClick)) {
@@ -299,6 +299,10 @@ inline void DrawNewWorldMenu(NewWorldParams& params, bool& wantCreate, bool& wan
         const float avail  = ImGui::GetContentRegionAvail().x;
         const float comboW = avail - thickW - sp - sqW - sp - sqW - sp - sqW;
 
+        // Pre-compute total thickness for per-layer clamping
+        int totalThickness = 0;
+        for (const auto& l : params.superflatLayers) totalThickness += l.thickness;
+
         ImGui::BeginChild("##sf_layers", ImVec2(0, 200.0f), ImGuiChildFlags_Borders);
 
         int deleteIdx = -1, swapIdx = -1, swapDir = 0;
@@ -316,8 +320,11 @@ inline void DrawNewWorldMenu(NewWorldParams& params, bool& wantCreate, bool& wan
 
             ImGui::SameLine(0, sp);
             ImGui::SetNextItemWidth(thickW);
-            ImGui::DragInt("##thick", &layer.thickness, 0.15f, 1, 255, "%d");
-            layer.thickness = std::max(1, std::min(255, layer.thickness));
+            {
+                const int maxThick = std::max(1, 513 - (totalThickness - layer.thickness));
+                if (ImGui::InputInt("##thick", &layer.thickness, 0, 0))
+                    layer.thickness = std::max(1, std::min(maxThick, layer.thickness));
+            }
 
             ImGui::SameLine(0, sp);
             ImGui::BeginDisabled(i >= n - 1);
@@ -346,10 +353,12 @@ inline void DrawNewWorldMenu(NewWorldParams& params, bool& wantCreate, bool& wan
         if (swapIdx >= 0 && swapDir == -1 && swapIdx > 0)
             std::swap(params.superflatLayers[swapIdx], params.superflatLayers[swapIdx - 1]);
 
+        ImGui::BeginDisabled(totalThickness >= 513);
         if (ImGui::Button("+ Add Layer", ImVec2(-1, 0))) {
             const uint32_t defBlock = blockList.empty() ? 2u : blockList[0].first;
             params.superflatLayers.push_back({defBlock, 1});
         }
+        ImGui::EndDisabled();
     }
 
     ImGui::Spacing();
@@ -385,7 +394,14 @@ inline void DrawNewWorldMenu(NewWorldParams& params, bool& wantCreate, bool& wan
     ImGui::Spacing();
 
     const float btnW = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
-    if (ImGui::Button("Create", ImVec2(btnW, 0))) { wantCreate = true; }
+    {
+        int sfTotal = 0;
+        if (params.worldTypeIdx == 2)
+            for (const auto& l : params.superflatLayers) sfTotal += l.thickness;
+        ImGui::BeginDisabled(params.worldTypeIdx == 2 && sfTotal > 512);
+        if (ImGui::Button("Create", ImVec2(btnW, 0))) { wantCreate = true; }
+        ImGui::EndDisabled();
+    }
     ImGui::SameLine();
     if (ImGui::Button("Back", ImVec2(btnW, 0))) { wantBack = true; }
 

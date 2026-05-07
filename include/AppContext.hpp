@@ -24,24 +24,24 @@ struct MenuSession; // forward declaration to avoid circular include
 // passed by reference to the two session handlers.
 struct AppContext {
 	// Window / rendering
-	SDL_Window*       window          = nullptr;
-	Shader*           defaultShader   = nullptr;
-	Shader*           wireframeShader = nullptr;
-	AtlasTexture*     blockAtlas      = nullptr;
-	AtlasTexture*     itemAtlas       = nullptr;
+	SDL_Window*       window             = nullptr;
+	Shader*           defaultShader      = nullptr;
+	Shader*           wireframeShader    = nullptr;
+	AtlasTexture*     blockAtlas         = nullptr;
+	AtlasTexture*     itemAtlas          = nullptr;
 
 	// Game objects
-	BlockRegistry*    blockRegistry   = nullptr;
-	Grid*             grid            = nullptr;
-	Physics*          physics         = nullptr;
-	PhysicsConstants* physicsConstants = nullptr;
-	Camera*           camera          = nullptr;
-	Physics::Entity*  player          = nullptr;
-	Hotbar*           hotbar          = nullptr;
-	Keybinds*         keybinds        = nullptr;
-	DebugOverlay*     debugOverlay    = nullptr;
-	MenuSession*      menuSession     = nullptr;
-	BiomeRegistry*    biomeRegistry   = nullptr;
+	BlockRegistry*    blockRegistry      = nullptr;
+	Grid*             grid               = nullptr;
+	Physics*          physics            = nullptr;
+	PhysicsConstants* physicsConstants   = nullptr;
+	Camera*           camera             = nullptr;
+	Physics::Entity*  player             = nullptr;
+	Hotbar*           hotbar             = nullptr;
+	Keybinds*         keybinds           = nullptr;
+	DebugOverlay*     debugOverlay       = nullptr;
+	MenuSession*      menuSession        = nullptr;
+	BiomeRegistry*    biomeRegistry      = nullptr;
 
 	// Asset paths (needed for hot-reload and world management)
 	std::string worldsDir;
@@ -50,7 +50,8 @@ struct AppContext {
 	std::string keybindsDataPath;
 
 	// Mutable game-wide state
-	GameState   gameState    = GameState::MAIN_MENU;
-	int         currentSeed  = 0;
-	std::string worldSavePath;
+	GameState         gameState          = GameState::MAIN_MENU;
+	int64_t           currentSeed        = 0;
+	std::string       worldSavePath;
+	WorldFile::Header currentWorldHeader;
 };

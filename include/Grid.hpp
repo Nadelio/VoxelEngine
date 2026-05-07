@@ -3,6 +3,7 @@
 #include <functional>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -16,6 +17,9 @@
 
 // A voxel grid backed by 16×16×16 chunks, each sharing one combined GPU mesh.
 class Grid {
+    struct IVec3Hash {
+        size_t operator()(const glm::ivec3& v) const noexcept;
+    };
 public:
     explicit Grid(const BlockRegistry* registry = nullptr) : registry_(registry) {}
 
@@ -25,6 +29,11 @@ public:
     // Add a block at integer grid coordinates (x, y, z) using a registered block ID.
     // Returns false if a block already exists there.
     bool AddBlock(int x, int y, int z, uint32_t blockID);
+
+    // Faster bulk variant for world generation and file loading.
+    // Skips the existence check and per-block neighbor dirty-marking.
+    // The caller must ensure RebuildVisibility() is called afterward.
+    void AddBlockBulk(int x, int y, int z, uint32_t blockID);
 
     void SetRegistry(const BlockRegistry* registry) { registry_ = registry; }
 
@@ -41,8 +50,19 @@ public:
     // Returns true if a block occupies the given integer grid position.
     bool HasBlockAt(glm::ivec3 pos) const;
 
+    // Returns the block ID at the given position, or 0 if no block exists there.
+    uint32_t GetBlockID(glm::ivec3 pos) const;
+
+    // Returns true if any block exists in the inclusive integer range [minPos, maxPos].
+    // Groups lookups by chunk to minimise hash-map overhead at chunk boundaries.
+    bool HasAnyBlockInRange(glm::ivec3 minPos, glm::ivec3 maxPos) const;
+
     // Mark all chunks dirty so they will be rebuilt on the next Draw() call.
     void RebuildVisibility();
+
+    // Immediately rebuild all chunk meshes (blocks must already be placed).
+    // Call this on world entry to avoid a large hitch on the first draw frame.
+    void RebuildAll(const AtlasTexture& atlas);
 
     // Result of a camera ray-cast into the grid.
     struct LookedAtResult {
@@ -88,11 +108,11 @@ public:
                          Shader& shader, const AtlasTexture& atlas,
                          const glm::mat4& projection, const glm::mat4& view);
 
-private:
-    struct IVec3Hash {
-        size_t operator()(const glm::ivec3& v) const noexcept;
-    };
+    // Returns the set of world positions that hold a gravity-affected block.
+    // Maintained incrementally on AddBlock/RemoveBlock/Clear — O(1) per block change.
+    const std::unordered_set<glm::ivec3, IVec3Hash>& GravityBlocks() const { return gravityBlocks_; }
 
+private:
     static int      FloorDiv(int a, int b);
     static glm::ivec3 ChunkCoord(glm::ivec3 worldPos);
     static glm::ivec3 LocalPos(glm::ivec3 worldPos, glm::ivec3 chunkCoord);
@@ -113,4 +133,5 @@ private:
 
     const BlockRegistry* registry_ = nullptr;
     std::unordered_map<glm::ivec3, std::unique_ptr<Chunk>, IVec3Hash> chunks_;
+    std::unordered_set<glm::ivec3, IVec3Hash> gravityBlocks_;
 };
