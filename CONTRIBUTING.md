@@ -71,6 +71,9 @@ cmake --build build -j
 		- Jumping animation
 		- Crouching animation
 		- Crawling animation
+- UI
+	- Add F1 keybind to hide all UI and 1st person view model
+	- Add F2 keybind to take a screenshot of the game
 - New blocks
 	- Water
 		- Fluids
@@ -83,6 +86,8 @@ cmake --build build -j
 	- Clay
 	- Ice
 		- Block-based friction values
+	- Glass
+		- Transparency
 - Survival mode
 	- Crafting
 		- Crafting table
@@ -138,6 +143,8 @@ cmake --build build -j
 - Terrain Generation
 	- Infinite worlds
 		- Loading/Unloading chunks based on distance from center of chunk
+	- Cave generation
+	- Move world surface from y = 0 to y = 255
 - Rendering
 	- Add fog to help cover up unloaded chunks
 	- Add skybox (that rotates between night/day)
@@ -145,4 +152,4 @@ cmake --build build -j
 	- Add shadows
 	- Add global lighting (based on time of day)
 	- Add colored point lighting
-	- Add block materials (like shine for ice blocks and transparency for water)
+	- Add block materials (like shine for ice blocks and transparency for water and glass)
