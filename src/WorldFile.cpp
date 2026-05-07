@@ -78,6 +78,49 @@ namespace {
         if (len > 0 && std::fread(out.data(), 1, len, f) != len) return false;
         return true;
     }
+
+    bool writeI64(std::FILE* f, int64_t v) {
+        const uint64_t u = static_cast<uint64_t>(v);
+        const uint8_t buf[8] = {
+            static_cast<uint8_t>(u        & 0xFF),
+            static_cast<uint8_t>((u >>  8) & 0xFF),
+            static_cast<uint8_t>((u >> 16) & 0xFF),
+            static_cast<uint8_t>((u >> 24) & 0xFF),
+            static_cast<uint8_t>((u >> 32) & 0xFF),
+            static_cast<uint8_t>((u >> 40) & 0xFF),
+            static_cast<uint8_t>((u >> 48) & 0xFF),
+            static_cast<uint8_t>((u >> 56) & 0xFF),
+        };
+        return std::fwrite(buf, 1, 8, f) == 8;
+    }
+
+    bool readI64(std::FILE* f, int64_t& out) {
+        uint8_t buf[8];
+        if (std::fread(buf, 1, 8, f) != 8) return false;
+        const uint64_t u = static_cast<uint64_t>(buf[0])
+                        | (static_cast<uint64_t>(buf[1]) <<  8)
+                        | (static_cast<uint64_t>(buf[2]) << 16)
+                        | (static_cast<uint64_t>(buf[3]) << 24)
+                        | (static_cast<uint64_t>(buf[4]) << 32)
+                        | (static_cast<uint64_t>(buf[5]) << 40)
+                        | (static_cast<uint64_t>(buf[6]) << 48)
+                        | (static_cast<uint64_t>(buf[7]) << 56);
+        out = static_cast<int64_t>(u);
+        return true;
+    }
+
+    bool writeFloat(std::FILE* f, float v) {
+        uint32_t u;
+        std::memcpy(&u, &v, sizeof(u));
+        return writeU32(f, u);
+    }
+
+    bool readFloat(std::FILE* f, float& out) {
+        uint32_t u;
+        if (!readU32(f, u)) return false;
+        std::memcpy(&out, &u, sizeof(out));
+        return true;
+    }
 }
 
 bool WorldFile::Save(const std::string& path,
@@ -89,10 +132,10 @@ bool WorldFile::Save(const std::string& path,
     // header
     // magic
     if (std::fwrite("VXLW", 1, 4, f) != 4)          goto fail;
-    // version
-    if (!writeU8(f, 1))                               goto fail;
-    // seed
-    if (!writeI32(f, header.seed))                    goto fail;
+    // version 2
+    if (!writeU8(f, 2))                               goto fail;
+    // seed (int64)
+    if (!writeI64(f, header.seed))                    goto fail;
     // world type
     if (!writeU8(f, static_cast<uint8_t>(header.worldType))) goto fail;
     // optional single-biome name
@@ -101,8 +144,8 @@ bool WorldFile::Save(const std::string& path,
     }
     // optional superflat layers (bottom to top)
     if (header.worldType == WorldType::Superflat) {
-        if (header.superflatLayers.size() > 0xFF)     goto fail;
-        if (!writeU8(f, static_cast<uint8_t>(header.superflatLayers.size()))) goto fail;
+        if (header.superflatLayers.size() > 0xFFFF)   goto fail;
+        if (!writeU16(f, static_cast<uint16_t>(header.superflatLayers.size()))) goto fail;
         for (const auto& layer : header.superflatLayers) {
             if (!writeU32(f, layer.blockID))              goto fail;
             const int t = std::max(1, std::min(255, layer.thickness));
@@ -115,6 +158,10 @@ bool WorldFile::Save(const std::string& path,
     for (const auto& dp : header.datapacks) {
         if (!writeString(f, dp))                      goto fail;
     }
+    // player position
+    if (!writeFloat(f, header.playerPos.x))           goto fail;
+    if (!writeFloat(f, header.playerPos.y))           goto fail;
+    if (!writeFloat(f, header.playerPos.z))           goto fail;
     // end-of-header sentinel
     if (!writeU8(f, 0xFF))                            goto fail;
 
@@ -153,10 +200,16 @@ bool WorldFile::Load(const std::string& path,
 
     // version
     uint8_t version;
-    if (!readU8(f, version) || version != 1) goto fail;
+    if (!readU8(f, version) || (version != 1 && version != 2)) goto fail;
 
     // seed
-    if (!readI32(f, h.seed)) goto fail;
+    if (version == 1) {
+        int32_t s32;
+        if (!readI32(f, s32)) goto fail;
+        h.seed = static_cast<int64_t>(s32);
+    } else {
+        if (!readI64(f, h.seed)) goto fail;
+    }
 
     // world type
     {
@@ -171,9 +224,15 @@ bool WorldFile::Load(const std::string& path,
     }
     // optional superflat layers
     if (h.worldType == WorldType::Superflat) {
-        uint8_t layerCount;
-        if (!readU8(f, layerCount)) goto fail;
-        h.superflatLayers.resize(layerCount);
+        if (version == 1) {
+            uint8_t layerCount;
+            if (!readU8(f, layerCount)) goto fail;
+            h.superflatLayers.resize(layerCount);
+        } else {
+            uint16_t layerCount;
+            if (!readU16(f, layerCount)) goto fail;
+            h.superflatLayers.resize(layerCount);
+        }
         for (auto& layer : h.superflatLayers) {
             if (!readU32(f, layer.blockID)) goto fail;
             uint8_t thick;
@@ -190,6 +249,14 @@ bool WorldFile::Load(const std::string& path,
         for (auto& dp : h.datapacks) {
             if (!readString(f, dp)) goto fail;
         }
+    }
+
+    // player position (v2 only)
+    if (version >= 2) {
+        if (!readFloat(f, h.playerPos.x)) goto fail;
+        if (!readFloat(f, h.playerPos.y)) goto fail;
+        if (!readFloat(f, h.playerPos.z)) goto fail;
+        h.hasPlayerPos = true;
     }
 
     // end-of-header sentinel
@@ -217,7 +284,7 @@ bool WorldFile::Load(const std::string& path,
         // clear and fill the grid.
         grid.Clear();
         for (const auto& r : records) {
-            grid.AddBlock(r.x, r.y, r.z, r.id);
+            grid.AddBlockBulk(r.x, r.y, r.z, r.id);
         }
     }
 
@@ -240,9 +307,16 @@ bool WorldFile::ReadHeader(const std::string& path, Header& headerOut) {
     if (std::fread(magic, 1, 4, f) != 4 || std::memcmp(magic, "VXLW", 4) != 0) goto fail;
 
     uint8_t version;
-    if (!readU8(f, version) || version != 1) goto fail;
+    if (!readU8(f, version) || (version != 1 && version != 2)) goto fail;
 
-    if (!readI32(f, h.seed)) goto fail;
+    // seed
+    if (version == 1) {
+        int32_t s32;
+        if (!readI32(f, s32)) goto fail;
+        h.seed = static_cast<int64_t>(s32);
+    } else {
+        if (!readI64(f, h.seed)) goto fail;
+    }
 
     {
         uint8_t wt;
@@ -255,9 +329,15 @@ bool WorldFile::ReadHeader(const std::string& path, Header& headerOut) {
     }
     // optional superflat layers
     if (h.worldType == WorldType::Superflat) {
-        uint8_t layerCount;
-        if (!readU8(f, layerCount)) goto fail;
-        h.superflatLayers.resize(layerCount);
+        if (version == 1) {
+            uint8_t layerCount;
+            if (!readU8(f, layerCount)) goto fail;
+            h.superflatLayers.resize(layerCount);
+        } else {
+            uint16_t layerCount;
+            if (!readU16(f, layerCount)) goto fail;
+            h.superflatLayers.resize(layerCount);
+        }
         for (auto& layer : h.superflatLayers) {
             if (!readU32(f, layer.blockID)) goto fail;
             uint8_t thick;
@@ -273,6 +353,14 @@ bool WorldFile::ReadHeader(const std::string& path, Header& headerOut) {
         for (auto& dp : h.datapacks) {
             if (!readString(f, dp)) goto fail;
         }
+    }
+
+    // player position (v2 only)
+    if (version >= 2) {
+        if (!readFloat(f, h.playerPos.x)) goto fail;
+        if (!readFloat(f, h.playerPos.y)) goto fail;
+        if (!readFloat(f, h.playerPos.z)) goto fail;
+        h.hasPlayerPos = true;
     }
 
     {

@@ -163,7 +163,13 @@ endif()
 
 if(WIN32)
     set(SDL3_RUNTIME_DLL "${VOXEL_LIBRARIES_ROOT}/SDL/SDL3.dll" CACHE FILEPATH "Path to SDL3.dll for standalone/runtime copy")
-elseif(UNIX AND NOT APPLE)
+elseif(APPLE)
+    set(SDL3_RUNTIME_DYLIB "${VOXEL_LIBRARIES_ROOT}/SDL/libSDL3.dylib" CACHE FILEPATH "Path to libSDL3.dylib for standalone/runtime copy")
+    set_target_properties(VoxelEngine PROPERTIES
+        BUILD_RPATH "@loader_path"
+        INSTALL_RPATH "@loader_path"
+    )
+elseif(UNIX)
     set(SDL3_RUNTIME_SO "${VOXEL_LIBRARIES_ROOT}/SDL/libSDL3.so" CACHE FILEPATH "Path to libSDL3.so for standalone/runtime copy")
     set_target_properties(VoxelEngine PROPERTIES
         BUILD_RPATH "$ORIGIN"
@@ -190,7 +196,26 @@ if(WIN32)
         message(STATUS "SDL3 runtime DLL not found at '${SDL3_RUNTIME_DLL}'.")
         message(STATUS "If needed, set -DSDL3_RUNTIME_DLL=/full/path/to/SDL3.dll")
     endif()
-elseif(UNIX AND NOT APPLE)
+elseif(APPLE)
+    if(TARGET SDL3-shared)
+        add_custom_command(TARGET VoxelEngine POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:SDL3-shared>"
+                "$<TARGET_FILE_DIR:VoxelEngine>/libSDL3.dylib"
+            COMMENT "Copying libSDL3.dylib to output directory"
+        )
+    elseif(EXISTS "${SDL3_RUNTIME_DYLIB}")
+        add_custom_command(TARGET VoxelEngine POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${SDL3_RUNTIME_DYLIB}"
+                "$<TARGET_FILE_DIR:VoxelEngine>/libSDL3.dylib"
+            COMMENT "Copying libSDL3.dylib to output directory"
+        )
+    else()
+        message(STATUS "SDL3 runtime dylib not found at '${SDL3_RUNTIME_DYLIB}'.")
+        message(STATUS "If needed, set -DSDL3_RUNTIME_DYLIB=/full/path/to/libSDL3.dylib")
+    endif()
+elseif(UNIX)
     if(EXISTS "${SDL3_RUNTIME_SO}")
         add_custom_command(TARGET VoxelEngine POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -240,7 +265,23 @@ if(WIN32)
             COMMENT "Adding SDL3.dll to standalone runtime folder"
         )
     endif()
-elseif(UNIX AND NOT APPLE AND EXISTS "${SDL3_RUNTIME_SO}")
+elseif(APPLE)
+    if(TARGET SDL3-shared)
+        add_custom_command(TARGET standalone POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:SDL3-shared>"
+                "${STANDALONE_OUTPUT_DIR}/libSDL3.dylib"
+            COMMENT "Adding libSDL3.dylib to standalone runtime folder"
+        )
+    elseif(EXISTS "${SDL3_RUNTIME_DYLIB}")
+        add_custom_command(TARGET standalone POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${SDL3_RUNTIME_DYLIB}"
+                "${STANDALONE_OUTPUT_DIR}/libSDL3.dylib"
+            COMMENT "Adding libSDL3.dylib to standalone runtime folder"
+        )
+    endif()
+elseif(UNIX AND EXISTS "${SDL3_RUNTIME_SO}")
     add_custom_command(TARGET standalone POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${SDL3_RUNTIME_SO}"

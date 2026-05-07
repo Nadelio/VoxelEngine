@@ -102,6 +102,10 @@ bool Chunk::HasBlock(int lx, int ly, int lz) const {
     return blocks_[lx][ly][lz].exists;
 }
 
+uint32_t Chunk::GetBlockID(int lx, int ly, int lz) const {
+    return blocks_[lx][ly][lz].blockID;
+}
+
 void Chunk::SetBlock(int lx, int ly, int lz, uint32_t blockID) {
     if (!blocks_[lx][ly][lz].exists) {
         ++blockCount_;

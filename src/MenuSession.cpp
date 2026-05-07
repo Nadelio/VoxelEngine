@@ -15,7 +15,7 @@
 #include "WorldFile.hpp"
 
 namespace {
-	enum BLOCKS { GRASS = 0, DIRT, STONE, ANDESITE, SAND };
+	enum BLOCKS { GRASS = 0, DIRT, STONE, ANDESITE, SAND, SNOW };
 }
 
 bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& worldSession) {
@@ -158,7 +158,7 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 				}
 				ctx.hotbar->SetSlot(0, GRASS);    ctx.hotbar->SetSlot(1, DIRT);
 				ctx.hotbar->SetSlot(2, STONE);    ctx.hotbar->SetSlot(3, ANDESITE);
-				ctx.hotbar->SetSlot(4, SAND);
+			ctx.hotbar->SetSlot(4, SAND);     ctx.hotbar->SetSlot(5, SNOW);
 				worldSession.Enter(ctx, h, loadPath);
 				ctx.gameState = GameState::PLAYING;
 			} else {
@@ -175,7 +175,7 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 		if(wantCreate) {
 			WorldFile::Header h = newWorldParams.MakeHeader(ctx.biomeRegistry);
 			if(h.seed == 0) {
-				h.seed = static_cast<int32_t>(SDL_GetPerformanceCounter() & 0x7FFFFFFF);
+				h.seed = static_cast<int64_t>(SDL_GetPerformanceCounter());
 				if(h.seed == 0) h.seed = 1;
 			}
 
@@ -210,7 +210,7 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 
 			ctx.hotbar->SetSlot(0, GRASS);    ctx.hotbar->SetSlot(1, DIRT);
 			ctx.hotbar->SetSlot(2, STONE);    ctx.hotbar->SetSlot(3, ANDESITE);
-			ctx.hotbar->SetSlot(4, SAND);
+			ctx.hotbar->SetSlot(4, SAND);     ctx.hotbar->SetSlot(5, SNOW);
 
 			std::filesystem::create_directories(ctx.worldsDir);
 			const std::string newPath = ctx.worldsDir + std::to_string(h.seed) + ".world";

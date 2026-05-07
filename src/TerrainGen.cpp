@@ -73,18 +73,18 @@ float TerrainGen::Voronoi2D(float x, float z, float scale, float smoothness, int
 }
 
 float TerrainGen::SampleHeightFactor(float x, float z, const Params& p) {
-    const float noise   = Noise2D(x, z, p.noiseScale,   p.seed);
-    const float voronoi = Voronoi2D(x, z, p.voronoiScale, p.voronoiSmoothness, p.seed);
+    const float noise   = Noise2D(x, z, p.noiseScale,   static_cast<int>(p.seed));
+    const float voronoi = Voronoi2D(x, z, p.voronoiScale, p.voronoiSmoothness, static_cast<int>(p.seed));
     return std::sqrt(noise * voronoi);
 }
 
 float TerrainGen::SampleTemperature(float x, float z, const Params& p) {
-    const float n = Noise2D(x, z, 0.008f, p.seed + 9999);
+    const float n = Noise2D(x, z, 0.008f, static_cast<int>(p.seed + 9999));
     return n * 2.0f - 1.0f;
 }
 
 float TerrainGen::SampleBiomeFactor(float x, float z, const Params& p) {
-    const float v   = Voronoi2D(x, z, p.voronoiScale, p.voronoiSmoothness, p.seed);
+    const float v   = Voronoi2D(x, z, p.voronoiScale, p.voronoiSmoothness, static_cast<int>(p.seed));
     const float cr1 = (v >= 0.8f) ? 1.0f : 0.0f;
     const float raw = v * cr1;
     return smoothstep(raw);
@@ -93,6 +93,21 @@ float TerrainGen::SampleBiomeFactor(float x, float z, const Params& p) {
 int TerrainGen::SampleSurfaceY(float x, float z, const Params& p) {
     return p.baseHeight + static_cast<int>(SampleHeightFactor(x, z, p)
                                            * static_cast<float>(p.heightAmplitude));
+}
+
+std::string TerrainGen::GetBiomeAt(float x, float z, const BiomeRegistry* biomes, const Params& p) {
+    if (!p.superflatLayers.empty())
+        return {};
+    if (!p.forceBiome.empty())
+        return p.forceBiome;
+    if (biomes && !biomes->Biomes().empty()) {
+        const float temperature = SampleTemperature(x, z, p);
+        const int   surfaceY    = SampleSurfaceY(x, z, p);
+        const BiomeData* bd     = biomes->FindMatch(temperature, surfaceY);
+        return bd ? bd->id : biomes->Biomes().front().id;
+    }
+    const float biomeFactor = SampleBiomeFactor(x, z, p);
+    return (biomeFactor > 0.0f) ? "desert" : "plains";
 }
 
 uint32_t TerrainGen::SelectBlock(const BlockRegistry& registry,
@@ -163,7 +178,7 @@ void TerrainGen::Generate(Grid& grid, const BlockRegistry& registry, const Biome
             for (int ly = 0; ly < layer.thickness; ++ly) {
                 for (int z = -halfD; z < halfD; ++z) {
                     for (int x = -halfW; x < halfW; ++x) {
-                        grid.AddBlock(x, baseY + ly, z, layer.blockID);
+                        grid.AddBlockBulk(x, baseY + ly, z, layer.blockID);
                     }
                 }
             }
@@ -195,7 +210,7 @@ void TerrainGen::Generate(Grid& grid, const BlockRegistry& registry, const Biome
 
             for (int y = minY; y <= surfaceY; ++y) {
                 const int      depth   = surfaceY - y;
-                const uint32_t blockID = SelectBlock(registry, x, y, z, depth, biome, 2u /* stone */, p.seed);
+                const uint32_t blockID = SelectBlock(registry, x, y, z, depth, biome, 2u /* stone */, static_cast<int>(p.seed));
                 grid.AddBlock(x, y, z, blockID);
             }
         }

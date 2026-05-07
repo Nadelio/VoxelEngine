@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -16,7 +17,7 @@ struct SuperflatLayer {
 class TerrainGen {
 public:
     struct Params {
-        int seed = 0;
+        int64_t seed = 0;
 
         // If non-empty, every column is forced into this biome (Single Biome world type).
         // Leave empty for automatic biome selection via temperature + elevation.
@@ -53,6 +54,10 @@ public:
 
     // Returns the surface Y at world position (x, z) for the given params.
     static int SampleSurfaceY(float x, float z, const Params& p);
+
+    // Returns the biome id at world position (x, z) using the same logic as Generate.
+    // When superflatLayers is non-empty (Superflat worlds), returns an empty string.
+    static std::string GetBiomeAt(float x, float z, const BiomeRegistry* biomes, const Params& p);
 
 private:
     // sqrt(noise × voronoi) → [0, 1]

@@ -1,6 +1,7 @@
 #include "Grid.hpp"
 
 #include <array>
+#include <cmath>
 #include <functional>
 #include "MeshConstants.hpp"
 
@@ -235,6 +236,33 @@ glm::ivec3 Grid::LocalPos(glm::ivec3 worldPos, glm::ivec3 chunkCoord) {
     return worldPos - chunkCoord * Chunk::kSize;
 }
 
+bool Grid::HasAnyBlockInRange(glm::ivec3 minPos, glm::ivec3 maxPos) const {
+    const glm::ivec3 minChunk = ChunkCoord(minPos);
+    const glm::ivec3 maxChunk = ChunkCoord(maxPos);
+    for (int cx = minChunk.x; cx <= maxChunk.x; ++cx) {
+        for (int cy = minChunk.y; cy <= maxChunk.y; ++cy) {
+            for (int cz = minChunk.z; cz <= maxChunk.z; ++cz) {
+                const glm::ivec3 cc{cx, cy, cz};
+                auto it = chunks_.find(cc);
+                if (it == chunks_.end()) continue;
+                const glm::ivec3 origin = cc * Chunk::kSize;
+                const int lxMin = std::max(minPos.x - origin.x, 0);
+                const int lyMin = std::max(minPos.y - origin.y, 0);
+                const int lzMin = std::max(minPos.z - origin.z, 0);
+                const int lxMax = std::min(maxPos.x - origin.x, Chunk::kSize - 1);
+                const int lyMax = std::min(maxPos.y - origin.y, Chunk::kSize - 1);
+                const int lzMax = std::min(maxPos.z - origin.z, Chunk::kSize - 1);
+                for (int lx = lxMin; lx <= lxMax; ++lx)
+                    for (int ly = lyMin; ly <= lyMax; ++ly)
+                        for (int lz = lzMin; lz <= lzMax; ++lz)
+                            if (it->second->HasBlock(lx, ly, lz))
+                                return true;
+            }
+        }
+    }
+    return false;
+}
+
 void Grid::MarkNeighborChunksDirty(glm::ivec3 /*worldPos*/, glm::ivec3 chunkCoord, glm::ivec3 localPos) {
     const int dirs[3][2] = {{-1, 0}, {-1, 1}, {-1, 2}};
 
@@ -273,7 +301,29 @@ bool Grid::AddBlock(int x, int y, int z, uint32_t blockID) {
     it->second->SetBlock(lp.x, lp.y, lp.z, blockID);
     it->second->MarkDirty();
     MarkNeighborChunksDirty(worldPos, cc, lp);
+    if (registry_) {
+        const BlockData* bd = registry_->Get(blockID);
+        if (bd && bd->affectedByGravity)
+            gravityBlocks_.insert(worldPos);
+    }
     return true;
+}
+
+void Grid::AddBlockBulk(int x, int y, int z, uint32_t blockID) {
+    const glm::ivec3 worldPos(x, y, z);
+    const glm::ivec3 cc = ChunkCoord(worldPos);
+    const glm::ivec3 lp = LocalPos(worldPos, cc);
+
+    auto it = chunks_.find(cc);
+    if (it == chunks_.end()) {
+        it = chunks_.emplace(cc, std::make_unique<Chunk>()).first;
+    }
+    it->second->SetBlock(lp.x, lp.y, lp.z, blockID);
+    if (registry_) {
+        const BlockData* bd = registry_->Get(blockID);
+        if (bd && bd->affectedByGravity)
+            gravityBlocks_.insert(worldPos);
+    }
 }
 
 bool Grid::RemoveBlock(glm::ivec3 pos) {
@@ -286,6 +336,7 @@ bool Grid::RemoveBlock(glm::ivec3 pos) {
 
     it->second->MarkDirty();
     MarkNeighborChunksDirty(pos, cc, lp);
+    gravityBlocks_.erase(pos);
 
     if (it->second->IsEmpty()) {
         chunks_.erase(it);
@@ -295,6 +346,7 @@ bool Grid::RemoveBlock(glm::ivec3 pos) {
 
 void Grid::Clear() {
     chunks_.clear();
+    gravityBlocks_.clear();
 }
 
 bool Grid::HasBlockAt(glm::ivec3 pos) const {
@@ -305,9 +357,28 @@ bool Grid::HasBlockAt(glm::ivec3 pos) const {
     return it->second->HasBlock(lp.x, lp.y, lp.z);
 }
 
+uint32_t Grid::GetBlockID(glm::ivec3 pos) const {
+    const glm::ivec3 cc = ChunkCoord(pos);
+    auto it = chunks_.find(cc);
+    if (it == chunks_.end()) return 0;
+    const glm::ivec3 lp = LocalPos(pos, cc);
+    if (!it->second->HasBlock(lp.x, lp.y, lp.z)) return 0;
+    return it->second->GetBlockID(lp.x, lp.y, lp.z);
+}
+
 void Grid::RebuildVisibility() {
     for (auto& [coord, chunk] : chunks_) {
         chunk->MarkDirty();
+    }
+}
+
+void Grid::RebuildAll(const AtlasTexture& atlas) {
+    if (!registry_) return;
+    for (auto& [coord, chunk] : chunks_) {
+        const glm::ivec3 origin = coord * Chunk::kSize;
+        chunk->MarkDirty();
+        chunk->RebuildMesh(origin, atlas, *registry_,
+            [this](glm::ivec3 p) { return HasBlockAt(p); });
     }
 }
 
@@ -364,21 +435,58 @@ Grid::LookedAtResult Grid::QueryLookedAt(const Camera& camera, float maxDistance
     return FindLookedAt(camera.position, camera.Forward(), maxDistance);
 }
 
+namespace {
+    struct Plane { float nx, ny, nz, d; };
+
+    std::array<Plane, 6> ExtractFrustumPlanes(const glm::mat4& pv) {
+        auto row = [&](int i) -> glm::vec4 {
+            return { pv[0][i], pv[1][i], pv[2][i], pv[3][i] };
+        };
+        auto toPlane = [](glm::vec4 v) -> Plane {
+            const float len = std::sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
+            return { v.x/len, v.y/len, v.z/len, v.w/len };
+        };
+        const glm::vec4 r0 = row(0), r1 = row(1), r2 = row(2), r3 = row(3);
+        return {{
+            toPlane(r3 + r0),  // left
+            toPlane(r3 - r0),  // right
+            toPlane(r3 + r1),  // bottom
+            toPlane(r3 - r1),  // top
+            toPlane(r3 + r2),  // near
+            toPlane(r3 - r2),  // far
+        }};
+    }
+
+    bool ChunkInFrustum(const std::array<Plane, 6>& planes, const glm::ivec3& coord) {
+        const glm::vec3 minPt = glm::vec3(coord * Chunk::kSize);
+        const glm::vec3 maxPt = minPt + glm::vec3(Chunk::kSize);
+        for (const auto& p : planes) {
+            const float px = (p.nx >= 0.0f) ? maxPt.x : minPt.x;
+            const float py = (p.ny >= 0.0f) ? maxPt.y : minPt.y;
+            const float pz = (p.nz >= 0.0f) ? maxPt.z : minPt.z;
+            if (p.nx*px + p.ny*py + p.nz*pz + p.d < 0.0f)
+                return false;
+        }
+        return true;
+    }
+}
+
 void Grid::Draw(Shader& shader, const AtlasTexture& atlas,
                 const glm::mat4& projection, const glm::mat4& view) {
-    if (!registry_) {
-        return;
-    }
+    if (!registry_) return;
 
     shader.Use();
     shader.SetInt("uAtlas", 0);
     atlas.Bind(GL_TEXTURE0);
 
-        const float tileW = static_cast<float>(MeshConstants::kTilePixelSize) /
-                            static_cast<float>(atlas.Width() > 0 ? atlas.Width() : 1);
-        const float tileH = static_cast<float>(MeshConstants::kTilePixelSize) /
-                            static_cast<float>(atlas.Height() > 0 ? atlas.Height() : 1);
-        shader.SetVec2("uTileSize", tileW, tileH);
+    const float tileW = static_cast<float>(MeshConstants::kTilePixelSize) /
+                        static_cast<float>(atlas.Width() > 0 ? atlas.Width() : 1);
+    const float tileH = static_cast<float>(MeshConstants::kTilePixelSize) /
+                        static_cast<float>(atlas.Height() > 0 ? atlas.Height() : 1);
+    shader.SetVec2("uTileSize", tileW, tileH);
+
+    const glm::mat4 pv     = projection * view;
+    const auto      planes = ExtractFrustumPlanes(pv);
 
     for (auto& [coord, chunk] : chunks_) {
         if (chunk->IsDirty()) {
@@ -386,9 +494,11 @@ void Grid::Draw(Shader& shader, const AtlasTexture& atlas,
             chunk->RebuildMesh(origin, atlas, *registry_,
                 [this](glm::ivec3 p) { return HasBlockAt(p); });
         }
+        if (chunk->IndexCount() == 0) continue;
+        if (!ChunkInFrustum(planes, coord)) continue;
+
         const glm::ivec3 origin = coord * Chunk::kSize;
-        const glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(origin));
-        const glm::mat4 mvp = projection * view * model;
+        const glm::mat4 mvp    = pv * glm::translate(glm::mat4(1.0f), glm::vec3(origin));
         shader.SetMat4("uMVP", glm::value_ptr(mvp));
         chunk->Draw();
     }
@@ -396,38 +506,74 @@ void Grid::Draw(Shader& shader, const AtlasTexture& atlas,
 
 Grid::LookedAtResult Grid::FindLookedAt(const glm::vec3& rayOrigin, const glm::vec3& rayDirection,
                                           float maxDistance) const {
-    LookedAtResult nearest;
-    float nearestDistance = maxDistance;
+    LookedAtResult result;
 
-    ForEachBlock([&](const glm::ivec3& blockPos, uint32_t blockID) {
-        const glm::vec3 center(blockPos);
-        const glm::vec3 aabbMin = center - glm::vec3(0.5f);
-        const glm::vec3 aabbMax = center + glm::vec3(0.5f);
-        float hitDistance = maxDistance;
-        if (!IntersectRayAabb(rayOrigin, rayDirection, aabbMin, aabbMax, maxDistance, hitDistance)) return;
-        if (hitDistance > nearestDistance) return;
+    const glm::vec3 o = rayOrigin + glm::vec3(0.5f);
 
-        nearestDistance = hitDistance;
-        nearest.hit = true;
-        nearest.blockPos = blockPos;
-        nearest.blockID = blockID;
-        nearest.blockData = registry_ ? registry_->Get(blockID) : nullptr;
+    int ix = static_cast<int>(std::floor(o.x));
+    int iy = static_cast<int>(std::floor(o.y));
+    int iz = static_cast<int>(std::floor(o.z));
 
-        const glm::vec3 hitPoint = rayOrigin + rayDirection * hitDistance;
-        const glm::vec3 local = hitPoint - center;
-        const float absX = glm::abs(local.x);
-        const float absY = glm::abs(local.y);
-        const float absZ = glm::abs(local.z);
-        if (absX >= absY && absX >= absZ) {
-            nearest.faceIndex = (local.x > 0.0f) ? 0 : 1;   // +X or -X
-        } else if (absY >= absX && absY >= absZ) {
-            nearest.faceIndex = (local.y > 0.0f) ? 2 : 3;   // +Y or -Y
-        } else {
-            nearest.faceIndex = (local.z > 0.0f) ? 4 : 5;   // +Z or -Z
+    const int stepX = (rayDirection.x >= 0.0f) ? 1 : -1;
+    const int stepY = (rayDirection.y >= 0.0f) ? 1 : -1;
+    const int stepZ = (rayDirection.z >= 0.0f) ? 1 : -1;
+
+    const float tDeltaX = (rayDirection.x != 0.0f) ? std::abs(1.0f / rayDirection.x) : 1e30f;
+    const float tDeltaY = (rayDirection.y != 0.0f) ? std::abs(1.0f / rayDirection.y) : 1e30f;
+    const float tDeltaZ = (rayDirection.z != 0.0f) ? std::abs(1.0f / rayDirection.z) : 1e30f;
+
+    const float fxo = o.x - std::floor(o.x);
+    const float fyo = o.y - std::floor(o.y);
+    const float fzo = o.z - std::floor(o.z);
+    float tMaxX = (stepX > 0) ? (1.0f - fxo) * tDeltaX : fxo * tDeltaX;
+    float tMaxY = (stepY > 0) ? (1.0f - fyo) * tDeltaY : fyo * tDeltaY;
+    float tMaxZ = (stepZ > 0) ? (1.0f - fzo) * tDeltaZ : fzo * tDeltaZ;
+
+    int lastAxis = -1;
+
+    for (;;) {
+        const glm::ivec3 pos{ix, iy, iz};
+        if (HasBlockAt(pos)) {
+            result.hit      = true;
+            result.blockPos = pos;
+            result.blockID  = GetBlockID(pos);
+            result.blockData = registry_ ? registry_->Get(result.blockID) : nullptr;
+
+            switch (lastAxis) {
+                case 0: result.faceIndex = (stepX > 0) ? 1 : 0; break;
+                case 1: result.faceIndex = (stepY > 0) ? 3 : 2; break;
+                case 2: result.faceIndex = (stepZ > 0) ? 5 : 4; break;
+                default: {
+                    const glm::vec3 lp = rayOrigin - glm::vec3(pos);
+                    const float ax = std::abs(lp.x), ay = std::abs(lp.y), az = std::abs(lp.z);
+                    if      (ax >= ay && ax >= az) result.faceIndex = (lp.x > 0.0f) ? 0 : 1;
+                    else if (ay >= az)             result.faceIndex = (lp.y > 0.0f) ? 2 : 3;
+                    else                           result.faceIndex = (lp.z > 0.0f) ? 4 : 5;
+                    break;
+                }
+            }
+            return result;
         }
-    });
 
-    return nearest;
+        if (tMaxX < tMaxY && tMaxX < tMaxZ) {
+            if (tMaxX > maxDistance) break;
+            ix += stepX;
+            tMaxX += tDeltaX;
+            lastAxis = 0;
+        } else if (tMaxY < tMaxZ) {
+            if (tMaxY > maxDistance) break;
+            iy += stepY;
+            tMaxY += tDeltaY;
+            lastAxis = 1;
+        } else {
+            if (tMaxZ > maxDistance) break;
+            iz += stepZ;
+            tMaxZ += tDeltaZ;
+            lastAxis = 2;
+        }
+    }
+
+    return result;
 }
 
 void Grid::DrawWireframe(Shader& shader,

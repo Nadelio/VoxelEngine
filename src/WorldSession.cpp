@@ -26,7 +26,8 @@
 #include "WorldFile.hpp"
 
 void WorldSession::Enter(AppContext& ctx, const WorldFile::Header& header, const std::string& savePath) {
-	ctx.currentSeed = header.seed;
+	ctx.currentSeed        = header.seed;
+	ctx.currentWorldHeader = header;
 	if (!savePath.empty()) {
 		ctx.worldSavePath = savePath;
 	} else {
@@ -37,12 +38,23 @@ void WorldSession::Enter(AppContext& ctx, const WorldFile::Header& header, const
 			ctx.worldSavePath = filename;
 	}
 
-	ctx.grid->RebuildVisibility();
+	ctx.grid->RebuildAll(*ctx.blockAtlas);
 
-	const TerrainGen::Params spawnParams{ header.seed };
-	const float spawnYf = static_cast<float>(
-		TerrainGen::SampleSurfaceY(0.5f, 0.5f, spawnParams)) + 2.0f;
-	ctx.physics->teleportTo(*ctx.player, {0.5f, spawnYf, 0.5f}, ctx.camera);
+	if (header.hasPlayerPos) {
+		ctx.physics->teleportTo(*ctx.player, header.playerPos, ctx.camera);
+	} else {
+		float spawnYf;
+		if (header.worldType == WorldFile::WorldType::Superflat) {
+			int surfY = 0;
+			for (const auto& l : header.superflatLayers) surfY += l.thickness;
+			spawnYf = static_cast<float>(surfY) + 2.0f;
+		} else {
+			const TerrainGen::Params spawnParams{ header.seed };
+			spawnYf = static_cast<float>(
+				TerrainGen::SampleSurfaceY(0.5f, 0.5f, spawnParams)) + 2.0f;
+		}
+		ctx.physics->teleportTo(*ctx.player, {0.5f, spawnYf, 0.5f}, ctx.camera);
+	}
 
 	if(!SDL_SetWindowRelativeMouseMode(ctx.window, true)) {
 		std::fprintf(stderr, "Warning: could not enable relative mouse mode: %s\n", SDL_GetError());
@@ -98,10 +110,10 @@ void WorldSession::ProcessEvent(const SDL_Event& event, AppContext& ctx) {
 		}
 
 		if(ChordPressed(sc, kbState, ctx.keybinds->debug_save)) {
-			WorldFile::Header wfh;
-			wfh.seed = ctx.currentSeed;
+			ctx.currentWorldHeader.playerPos    = ctx.player->position;
+			ctx.currentWorldHeader.hasPlayerPos = true;
 			std::filesystem::create_directories(ctx.worldsDir);
-			if(WorldFile::Save(ctx.worldSavePath, wfh, *ctx.grid)) {
+			if(WorldFile::Save(ctx.worldSavePath, ctx.currentWorldHeader, *ctx.grid)) {
 				std::fprintf(stderr, "World saved to: %s\n", ctx.worldSavePath.c_str());
 			} else {
 				std::fprintf(stderr, "Warning: world save failed for '%s'\n", ctx.worldSavePath.c_str());
@@ -111,8 +123,9 @@ void WorldSession::ProcessEvent(const SDL_Event& event, AppContext& ctx) {
 		if(ChordPressed(sc, kbState, ctx.keybinds->debug_load)) {
 			WorldFile::Header wfh;
 			if(WorldFile::Load(ctx.worldSavePath, wfh, *ctx.grid)) {
+				ctx.currentWorldHeader = wfh;
 				ctx.grid->RebuildVisibility();
-				std::fprintf(stderr, "World loaded from: %s (seed %d)\n", ctx.worldSavePath.c_str(), wfh.seed);
+				std::fprintf(stderr, "World loaded from: %s (seed %lld)\n", ctx.worldSavePath.c_str(), (long long)wfh.seed);
 			} else {
 				std::fprintf(stderr, "Warning: world load failed for '%s'\n", ctx.worldSavePath.c_str());
 			}
@@ -143,7 +156,7 @@ void WorldSession::ProcessEvent(const SDL_Event& event, AppContext& ctx) {
 			} else if(event.button.button == SDL_BUTTON_RIGHT) {
 				if(hit.hit && hit.faceIndex >= 0) {
 					const glm::ivec3 placePos = hit.blockPos + kFaceOffset[hit.faceIndex];
-					if(!ctx.grid->HasBlockAt(placePos)) {
+					if(!ctx.grid->HasBlockAt(placePos) && placePos.y < 513) {
 						const uint32_t selectedBlockID = ctx.hotbar->CurrentBlockID();
 						if(selectedBlockID != 0u || ctx.hotbar->SlotHasBlock(ctx.hotbar->SelectedSlot())) {
 							if(ctx.physics->CanPlaceBlockAt(*ctx.player, *ctx.camera, placePos)) {
@@ -211,6 +224,23 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 		ctx.physics->UpdateFallingBlocks(static_cast<float>(dt));
 		ctx.physics->ForceEntityUpIfInsideBlock(*ctx.player);
 
+		// Out-of-bounds recovery: if the player falls below y = -16, teleport back to spawn
+		if (ctx.player->position.y < -16.0f) {
+			float safeY = 2.0f;
+			if (ctx.currentWorldHeader.worldType == WorldFile::WorldType::Superflat) {
+				int surfY = 0;
+				for (const auto& layer : ctx.currentWorldHeader.superflatLayers)
+					surfY += layer.thickness;
+				safeY = static_cast<float>(surfY) + 2.0f;
+			} else {
+				TerrainGen::Params spawnParams;
+				spawnParams.seed = ctx.currentSeed;
+				safeY = static_cast<float>(
+					TerrainGen::SampleSurfaceY(0.5f, 0.5f, spawnParams)) + 2.0f;
+			}
+			ctx.physics->teleportTo(*ctx.player, {0.5f, safeY, 0.5f}, ctx.camera);
+		}
+
 		ctx.camera->position = ctx.player->position;
 	}
 
@@ -254,7 +284,28 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 
 			ImGui::Text("FPS: %d", displayedFps);
 			ImGui::Separator();
-			ImGui::Text("Seed: %d", ctx.currentSeed);
+			ImGui::Text("Seed: %lld", (long long)ctx.currentSeed);
+			{
+				std::string biomeStr;
+				if (!ctx.currentWorldHeader.superflatLayers.empty()) {
+					biomeStr = "none";
+				} else {
+					TerrainGen::Params bp;
+					bp.seed = ctx.currentSeed;
+					if (ctx.currentWorldHeader.worldType == WorldFile::WorldType::SingleBiome)
+						bp.forceBiome = ctx.currentWorldHeader.singleBiome;
+					biomeStr = TerrainGen::GetBiomeAt(
+						ctx.player->position.x, ctx.player->position.z,
+						ctx.biomeRegistry, bp);
+					const BiomeData* bd = ctx.biomeRegistry
+						? ctx.biomeRegistry->GetById(biomeStr) : nullptr;
+					if (bd) biomeStr = bd->displayName;
+				}
+				ImGui::Text("Biome: %s", biomeStr.c_str());
+			}
+			ImGui::Separator();
+			ImGui::Text("Position: %.2f  %.2f  %.2f",
+				ctx.player->position.x, ctx.player->position.y, ctx.player->position.z);
 
 			if(debugLookedAtData) {
 				const Grid::LookedAtResult hit = ctx.grid->QueryLookedAt(*ctx.camera);
@@ -303,10 +354,10 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 			ctx.gameState = GameState::SETTINGS_MENU;
 		}
 		if(wantSaveQuit) {
-			WorldFile::Header wfh;
-			wfh.seed = ctx.currentSeed;
+			ctx.currentWorldHeader.playerPos    = ctx.player->position;
+			ctx.currentWorldHeader.hasPlayerPos = true;
 			std::filesystem::create_directories(ctx.worldsDir);
-			if(!WorldFile::Save(ctx.worldSavePath, wfh, *ctx.grid)) {
+			if(!WorldFile::Save(ctx.worldSavePath, ctx.currentWorldHeader, *ctx.grid)) {
 				std::fprintf(stderr, "Warning: world save failed for '%s'\n", ctx.worldSavePath.c_str());
 			}
 			ctx.grid->Clear();

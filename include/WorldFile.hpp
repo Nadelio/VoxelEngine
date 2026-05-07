@@ -7,18 +7,20 @@
 #include "Grid.hpp"
 #include "TerrainGen.hpp"
 
-// Format:
+// Format (version 2):
 // Header
 //   [4]  magic          : "VXLW"
-//   [1]  version        : uint8  (currently 1)
-//   [4]  seed           : int32_t (little-endian)
+//   [1]  version        : uint8  (1=legacy, 2=current)
+//   v1: [4]  seed       : int32_t (little-endian)
+//   v2: [8]  seed       : int64_t (little-endian)
 //   [1]  worldType      : uint8  (0=default, 1=single_biome, 2=superflat)
 //   # if worldType == 1 (single_biome)
 //   [2]  biomeNameLen   : uint16_t
 //   [N]  biomeName      : utf-8 bytes
 //   # end if
 //   # if worldType == 2 (superflat)
-//   [1]  layerCount     : uint8  (0..255, bottom-to-top order)
+//   v1: [1]  layerCount : uint8  (0..255, bottom-to-top order)
+//   v2: [2]  layerCount : uint16_t (0..512, bottom-to-top order)
 //   for each layer:
 //     [4]  blockID      : uint32_t
 //     [1]  thickness    : uint8  (1..255)
@@ -27,6 +29,9 @@
 //   for each datapack:
 //     [2]  pathLen      : uint16_t
 //     [N]  path         : utf-8 bytes
+//   v2: [4]  playerPosX : float  (IEEE 754, little-endian)
+//   v2: [4]  playerPosY : float
+//   v2: [4]  playerPosZ : float
 //   [1]  endOfHeader    : 0xFF sentinel
 //
 // Block records  (one per placed block, no explicit count)
@@ -47,11 +52,13 @@ struct WorldFile {
 
     // Metadata stored in the file header.
     struct Header {
-        int32_t          seed         = 0;
+        int64_t          seed         = 0;
         WorldType        worldType    = WorldType::Default;
         std::string      singleBiome;    // only used when worldType == SingleBiome
         std::vector<SuperflatLayer> superflatLayers; // only used when worldType == Superflat
         std::vector<std::string> datapacks;
+        glm::vec3        playerPos    = {0.0f, 0.0f, 0.0f};
+        bool             hasPlayerPos = false;
     };
 
     // Save the current grid to `path`. Returns true on success.
