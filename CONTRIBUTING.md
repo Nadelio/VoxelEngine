@@ -86,6 +86,8 @@ cmake --build build -j
 	- Clay
 	- Ice
 		- Block-based friction values
+	- Glass
+		- Transparency
 - Survival mode
 	- Crafting
 		- Crafting table
