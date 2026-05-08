@@ -45,23 +45,6 @@ cmake --build build -j
 - No AI-generated source code
 
 ## TODO:
-- Terrain Generation
-	- Structure generation
-		- Trees
-		- Boulders
-		- Stone variant blobs
-			- Add "blob" block generation tag (generates in blobs)
-			- Add "vein" block generation tag (generates in longer strips)
-			- Add "mix" block generation tag (randomly pick between a list of mix-tagged blocks)
-				- This is the default/fallback tag
-			- Block generation tags prioritize individual blocks above block groups
-- Hand model
-	- Held block models
-	- Held item models
-	- Interaction animations
-		- Breaking block (swing hand)
-		- Placing block (swing hand)
-		- Picking block (point)
 - Player model
 	- Skins
 	- Capes
@@ -71,23 +54,31 @@ cmake --build build -j
 		- Jumping animation
 		- Crouching animation
 		- Crawling animation
-- UI
-	- Add F1 keybind to hide all UI and 1st person view model
-	- Add F2 keybind to take a screenshot of the game
 - New blocks
 	- Water
 		- Fluids
 		- Swimmming
+		- Water generates based on elevation
 	- Wood
 		- Saplings
 			- Tree/crop growth
 		- Leaves
 			- Decay
+				- Add decay for grass blocks as well (grass block -> dirt block if block on top)
 	- Clay
 	- Ice
 		- Block-based friction values
+		- Surface water freezes based on temperature
 	- Glass
 		- Transparency
+- Rendering
+	- Add fog to help cover up unloaded chunks
+	- Add skybox (that rotates between night/day)
+	- Add ambient occlusion
+	- Add shadows
+	- Add global lighting (based on time of day)
+	- Add colored point lighting
+	- Add block materials (like shine for ice blocks and transparency for water and glass)
 - Survival mode
 	- Crafting
 		- Crafting table
@@ -136,6 +127,8 @@ cmake --build build -j
 	- Add hotbar texture
 	- Add crafting texture
 	- Add furnace texture
+	- Add menu background texture (maybe just tile a block texture?)
+	- Change block hotbar render to mimic Minecraft
 	- Health, Hunger, Thirst UIs
 		- Two layers
 			- Empty hearts/hunger/thirst layer
@@ -144,12 +137,11 @@ cmake --build build -j
 	- Infinite worlds
 		- Loading/Unloading chunks based on distance from center of chunk
 	- Cave generation
-	- Move world surface from y = 0 to y = 255
-- Rendering
-	- Add fog to help cover up unloaded chunks
-	- Add skybox (that rotates between night/day)
-	- Add ambient occlusion
-	- Add shadows
-	- Add global lighting (based on time of day)
-	- Add colored point lighting
-	- Add block materials (like shine for ice blocks and transparency for water and glass)
+	- Structures
+		- Boulders (need to build these manually)
+- Arm model
+	- Interaction animations (these need to be tweaked manually)
+		- Breaking block (swing hand)
+		- Placing block (swing hand)
+		- Picking block (point)
+		- Arm model root position

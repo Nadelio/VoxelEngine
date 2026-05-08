@@ -3,6 +3,8 @@
 #include <SDL3/SDL.h>
 
 #include "AppContext.hpp"
+#include "HandModel.hpp"
+#include "Shader.hpp"
 #include "WorldFile.hpp"
 
 // Handles all frame logic for the PLAYING and PAUSE_MENU game states:
@@ -20,6 +22,8 @@ struct WorldSession {
 	bool debugWireframeOnly = false;
 	bool debugStance        = true;
 	bool debugVelocity      = true;
+	bool showGameplayUi     = true;
+	bool thirdPersonView    = false;
 
 	// Crawl-toggle edge-detect state
 	bool prevCrawlComboDown   = false;
@@ -45,4 +49,8 @@ struct WorldSession {
 	// debugOverlay.NewFrame / Render).
 	// Returns true if the player chose "Save and Quit" and we returned to MAIN_MENU.
 	bool Frame(double dt, int displayedFps, int winW, int winH, AppContext& ctx);
+
+private:
+	HandModel handModel_;
+	Shader    skinShader_;
 };

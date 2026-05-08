@@ -17,6 +17,55 @@
 
 namespace {
 	enum BLOCKS { GRASS = 0, DIRT, STONE, ANDESITE, SAND, SNOW, ICE, OAK_LEAVES, OAK_LOGS };
+
+	void RememberWindowedSize(AppContext& ctx) {
+		if(ctx.windowMode != WindowMode::WINDOWED) return;
+		SDL_GetWindowSize(ctx.window, &ctx.windowedWidth, &ctx.windowedHeight);
+	}
+
+	void ApplyWindowMode(AppContext& ctx, WindowMode mode) {
+		RememberWindowedSize(ctx);
+
+		if(!SDL_SetWindowFullscreen(ctx.window, false)) {
+			std::fprintf(stderr, "Warning: could not leave fullscreen: %s\n", SDL_GetError());
+		}
+		if(!SDL_RestoreWindow(ctx.window)) {
+			std::fprintf(stderr, "Warning: could not restore window state: %s\n", SDL_GetError());
+		}
+
+		if(mode == WindowMode::WINDOWED) {
+			if(!SDL_SetWindowBordered(ctx.window, true)) {
+				std::fprintf(stderr, "Warning: could not restore window border: %s\n", SDL_GetError());
+			}
+			if(!SDL_SetWindowResizable(ctx.window, true)) {
+				std::fprintf(stderr, "Warning: could not set window resizable: %s\n", SDL_GetError());
+			}
+			if(!SDL_SetWindowSize(ctx.window, ctx.windowedWidth, ctx.windowedHeight)) {
+				std::fprintf(stderr, "Warning: could not set window size: %s\n", SDL_GetError());
+			}
+		} else if(mode == WindowMode::WINDOWED_FULLSCREEN) {
+			if(!SDL_SetWindowBordered(ctx.window, false)) {
+				std::fprintf(stderr, "Warning: could not remove window border: %s\n", SDL_GetError());
+			}
+			if(!SDL_SetWindowResizable(ctx.window, true)) {
+				std::fprintf(stderr, "Warning: could not set window resizable: %s\n", SDL_GetError());
+			}
+			if(!SDL_MaximizeWindow(ctx.window)) {
+				std::fprintf(stderr, "Warning: could not maximize window: %s\n", SDL_GetError());
+			}
+		} else {
+			if(!SDL_SetWindowBordered(ctx.window, false)) {
+				std::fprintf(stderr, "Warning: could not remove window border: %s\n", SDL_GetError());
+			}
+			if(!SDL_SetWindowResizable(ctx.window, false)) {
+				std::fprintf(stderr, "Warning: could not set window non-resizable: %s\n", SDL_GetError());
+			}
+			if(!SDL_SetWindowFullscreen(ctx.window, true)) {
+				std::fprintf(stderr, "Warning: could not enter fullscreen: %s\n", SDL_GetError());
+			}
+		}
+		ctx.windowMode = mode;
+	}
 }
 
 bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& worldSession) {
@@ -36,11 +85,18 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 		if (settingsPage == SettingsPage::MAIN) {
 			bool wantBack      = false;
 			bool wantControls  = false;
+			bool windowModeChanged = false;
+			int windowModeIdx = static_cast<int>(ctx.windowMode);
 			std::string pickedBlockAtlas, pickedItemAtlas, pickedResPack, pickedDataPack;
 			DrawSettingsMenu(wantBack, wantControls,
 			                 pickedBlockAtlas, pickedItemAtlas,
 			                 pickedResPack, pickedDataPack,
+			                 windowModeIdx, windowModeChanged,
 			                 winW, winH);
+
+			if(windowModeChanged && windowModeIdx >= 0 && windowModeIdx <= 2) {
+				ApplyWindowMode(ctx, static_cast<WindowMode>(windowModeIdx));
+			}
 
 			if (wantBack) {
 				ctx.gameState = settingsReturnState;

@@ -19,6 +19,7 @@
 #include "Camera.hpp"
 #include "GameUI.hpp"
 #include "Grid.hpp"
+#include "HandModel.hpp"
 #include "Keybinds.hpp"
 #include "Physics.hpp"
 #include "Shader.hpp"
@@ -40,6 +41,33 @@ void WorldSession::Enter(AppContext& ctx, const WorldFile::Header& header, const
 	}
 
 	ctx.grid->RebuildAll(*ctx.blockAtlas);
+
+	if (!handModel_.Initialize()) {
+		std::fprintf(stderr, "Warning: HandModel initialization failed.\n");
+	}
+
+	if (skinShader_.Program() == 0) {
+		const auto resolveAsset = [](const std::string& rel) -> std::string {
+			if(const char* base = SDL_GetBasePath())
+				return std::string(base) + rel;
+			return rel;
+		};
+		const std::string skinVert = resolveAsset("assets/shaders/skin.vert");
+		const std::string skinFrag = resolveAsset("assets/shaders/skin.frag");
+		if (!skinShader_.LoadFromFiles(skinVert, skinFrag)) {
+			std::fprintf(stderr, "Warning: HandModel skin shader load failed.\n");
+		}
+	}
+
+	{
+		const auto resolveAsset = [](const std::string& rel) -> std::string {
+			if(const char* base = SDL_GetBasePath())
+				return std::string(base) + rel;
+			return rel;
+		};
+		const std::string skinPath = resolveAsset("assets/Nadeli0.png");
+		handModel_.LoadSkin(skinPath);
+	}
 
 	if (header.hasPlayerPos && !ctx.isStructureSession) {
 		ctx.physics->teleportTo(*ctx.player, header.playerPos, ctx.camera);
@@ -73,11 +101,15 @@ void WorldSession::ProcessEvent(const SDL_Event& event, AppContext& ctx) {
 	if(event.type == SDL_EVENT_KEY_DOWN && ctx.gameState == GameState::PLAYING) {
 		const SDL_Scancode sc      = event.key.scancode;
 		const bool* const  kbState = SDL_GetKeyboardState(nullptr);
+		const bool nonRepeat = !event.key.repeat;
 
 		if(ChordPressed(sc, kbState, ctx.keybinds->pause)) {
 			ctx.gameState = GameState::PAUSE_MENU;
 			SDL_SetWindowRelativeMouseMode(ctx.window, false);
 		}
+		if(nonRepeat && ChordPressed(sc, kbState, ctx.keybinds->ui_toggle))   { showGameplayUi = !showGameplayUi; }
+		if(nonRepeat && ChordPressed(sc, kbState, ctx.keybinds->screenshot))  { ctx.screenshotRequested = true; }
+		if(nonRepeat && ChordPressed(sc, kbState, ctx.keybinds->view_toggle)) { thirdPersonView = !thirdPersonView; }
 		if(ChordPressed(sc, kbState, ctx.keybinds->debug_toggle))         { debugView          = !debugView; }
 		if(ChordPressed(sc, kbState, ctx.keybinds->debug_wireframe))      { debugWireframe     = !debugWireframe; }
 		if(ChordPressed(sc, kbState, ctx.keybinds->debug_block))          { debugLookedAtBlock = !debugLookedAtBlock; }
@@ -167,7 +199,6 @@ void WorldSession::ProcessEvent(const SDL_Event& event, AppContext& ctx) {
 			}
 		}
 
-		// Crawl-toggle via sequence (e.g. <LC,LC>) is detected on KEY_DOWN.
 		if(ctx.keybinds->crawl_toggle.isSequence &&
 		   ChordPressed(sc, kbState, ctx.keybinds->crawl_toggle)) {
 			crawlToggleThisFrame = true;
@@ -196,9 +227,15 @@ void WorldSession::ProcessEvent(const SDL_Event& event, AppContext& ctx) {
 			const Grid::LookedAtResult hit = ctx.grid->QueryLookedAt(*ctx.camera);
 
 			if(event.button.button == SDL_BUTTON_LEFT) {
-				if(hit.hit) { ctx.grid->RemoveBlock(hit.blockPos); }
+				if(hit.hit) {
+					ctx.grid->RemoveBlock(hit.blockPos);
+					handModel_.TriggerSwing();
+				}
 			} else if(event.button.button == SDL_BUTTON_MIDDLE) {
-				if(hit.hit) { ctx.hotbar->SetSlot(ctx.hotbar->SelectedSlot(), hit.blockID); }
+				if(hit.hit) {
+					ctx.hotbar->SetSlot(ctx.hotbar->SelectedSlot(), hit.blockID);
+					handModel_.TriggerPoint();
+				}
 			} else if(event.button.button == SDL_BUTTON_RIGHT) {
 				if(hit.hit && hit.faceIndex >= 0) {
 					const glm::ivec3 placePos = hit.blockPos + kFaceOffset[hit.faceIndex];
@@ -221,6 +258,7 @@ void WorldSession::ProcessEvent(const SDL_Event& event, AppContext& ctx) {
 									}
 								}
 								ctx.grid->AddBlock(placePos.x, placePos.y, placePos.z, selectedBlockID, rotation);
+								handModel_.TriggerSwing();
 							}
 						}
 					}
@@ -241,14 +279,12 @@ void WorldSession::ProcessEvent(const SDL_Event& event, AppContext& ctx) {
 }
 
 bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppContext& ctx) {
-	// Apply accumulated mouse deltas to camera orientation
 	if(ctx.gameState == GameState::PLAYING) {
 		ctx.camera->UpdateFromMouseDelta(mouseDeltaX, mouseDeltaY);
 	}
 	mouseDeltaX = 0.0f;
 	mouseDeltaY = 0.0f;
 
-	// Crawl-toggle edge detection (chord style); sequence style is handled in ProcessEvent.
 	const bool* const keys       = SDL_GetKeyboardState(nullptr);
 	if(!ctx.keybinds->crawl_toggle.isSequence) {
 		const bool crawlCombo = ChordHeld(keys, ctx.keybinds->crawl_toggle);
@@ -256,11 +292,10 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 		prevCrawlComboDown    = crawlCombo;
 	} else {
 		prevCrawlComboDown = false;
-		// crawlToggleThisFrame may have been set in ProcessEvent; reset it after use below.
+		
 	}
 
 	if(ctx.gameState == GameState::PLAYING) {
-		// Build flat movement direction from camera yaw (no pitch contribution)
 		glm::vec3 forward = ctx.camera->Forward();
 		forward.y = 0.0f;
 		forward   = glm::normalize(forward);
@@ -303,7 +338,6 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 		ctx.physics->UpdateFallingBlocks(static_cast<float>(dt));
 		ctx.physics->ForceEntityUpIfInsideBlock(*ctx.player);
 
-		// Out-of-bounds recovery: if the player falls below y = -16, teleport back to spawn
 		if (ctx.player->position.y < -16.0f) {
 			float safeY = 2.0f;
 			if (ctx.currentWorldHeader.worldType == WorldFile::WorldType::Superflat) {
@@ -323,10 +357,23 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 		ctx.camera->position = ctx.player->position;
 	}
 
+	handModel_.Update(static_cast<float>(dt));
+
+	if (ctx.hotbar->SlotHasBlock(ctx.hotbar->SelectedSlot()))
+		handModel_.SetBlock(ctx.hotbar->CurrentBlockID(), *ctx.blockRegistry, *ctx.blockAtlas);
+	else
+		handModel_.ClearBlock();
+
 	// 3D rendering
 	const float aspect       = (winH > 0) ? static_cast<float>(winW) / static_cast<float>(winH) : 1.0f;
 	const glm::mat4 proj     = glm::perspective(glm::radians(60.0f), aspect, 0.1f, 200.0f);
-	const glm::mat4 view     = ctx.camera->View();
+	glm::mat4 view = ctx.camera->View();
+	if(thirdPersonView) {
+		const glm::vec3 lookAtPos = ctx.player->position + glm::vec3(0.0f, ctx.player->eyeFromFeet * 0.9f, 0.0f);
+		const glm::vec3 offset    = (-ctx.camera->Forward() * 4.0f) + glm::vec3(0.0f, 1.2f, 0.0f);
+		const glm::vec3 camPos    = lookAtPos + offset;
+		view = glm::lookAt(camPos, lookAtPos, glm::vec3(0.0f, 1.0f, 0.0f));
+	}
 
 	if(!(debugView && debugWireframeOnly)) {
 		ctx.grid->Draw(*ctx.defaultShader, *ctx.blockAtlas, proj, view);
@@ -338,13 +385,20 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 		ctx.grid->DrawFloatBlocks(fallingVisual, *ctx.defaultShader, *ctx.blockAtlas, proj, view);
 	}
 
+	glClear(GL_DEPTH_BUFFER_BIT);
+
+	// Draw first-person hand model
+	if (ctx.gameState == GameState::PLAYING && showGameplayUi && !thirdPersonView) {
+		handModel_.Draw(*ctx.defaultShader, skinShader_, *ctx.blockAtlas, winW, winH);
+	}
+
 	// ImGui overlay
 	ctx.debugOverlay->NewFrame();
 
 	bool returnedToMenu = false;
 
 	if(ctx.gameState == GameState::PLAYING) {
-		if(debugView) {
+		if(showGameplayUi && debugView) {
 			if(debugWireframe || debugWireframeOnly) {
 				ctx.grid->DrawWireframe(*ctx.wireframeShader, proj, view);
 			}
@@ -430,7 +484,9 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 
 			ImGui::End();
 		}
-		ctx.hotbar->Draw(*ctx.blockRegistry, winW, winH);
+		if(showGameplayUi) {
+			ctx.hotbar->Draw(*ctx.blockRegistry, winW, winH);
+		}
 
 	} else if(ctx.gameState == GameState::PAUSE_MENU) {
 		bool wantResume   = false;

@@ -148,6 +148,9 @@ inline KeyChord ChordFromKeybind(const DataFormat::Keybind& kb) {
 struct Keybinds {
     KeyChord quit           = KeyChord{{SDL_SCANCODE_F4, SDL_SCANCODE_RALT}};
     KeyChord pause          = KeyChord{{SDL_SCANCODE_ESCAPE}};
+    KeyChord ui_toggle      = KeyChord{{SDL_SCANCODE_F1}};
+    KeyChord screenshot     = KeyChord{{SDL_SCANCODE_F2}};
+    KeyChord view_toggle    = KeyChord{{SDL_SCANCODE_F5}};
     KeyChord move_forward   = KeyChord{{SDL_SCANCODE_W}};
     KeyChord move_back      = KeyChord{{SDL_SCANCODE_S}};
     KeyChord move_left      = KeyChord{{SDL_SCANCODE_A}};
@@ -194,6 +197,9 @@ inline bool LoadKeybinds(const std::string& path, Keybinds& out) {
 
     readChord("quit",                 out.quit);
     readChord("pause",                out.pause);
+    readChord("ui_toggle",            out.ui_toggle);
+    readChord("screenshot",           out.screenshot);
+    readChord("view_toggle",          out.view_toggle);
     readChord("move_forward",         out.move_forward);
     readChord("move_back",            out.move_back);
     readChord("move_left",            out.move_left);
@@ -220,8 +226,6 @@ inline bool LoadKeybinds(const std::string& path, Keybinds& out) {
 
     return true;
 }
-
-// ─── Serialization helpers ────────────────────────────────────────────────
 
 // SDL_Scancode → the token string used in keybinds.data.
 // Returns an empty string for unknown scancodes.
@@ -306,6 +310,9 @@ inline bool SaveKeybinds(const std::string& path, const Keybinds& kb) {
     std::fprintf(f, "# general\n");
     write("quit",                 kb.quit);
     write("pause",                kb.pause);
+    write("ui_toggle",            kb.ui_toggle);
+    write("screenshot",           kb.screenshot);
+    write("view_toggle",          kb.view_toggle);
     write("move_forward",         kb.move_forward);
     write("move_back",            kb.move_back);
     write("move_left",            kb.move_left);

@@ -19,6 +19,12 @@
 
 struct MenuSession; // forward declaration to avoid circular include
 
+enum class WindowMode {
+	WINDOWED = 0,
+	WINDOWED_FULLSCREEN = 1,
+	FULLSCREEN = 2,
+};
+
 // Flat context struct that holds non-owning pointers to all shared engine
 // resources and mutable game-wide state. Populated once in main() and then
 // passed by reference to the two session handlers.
@@ -51,9 +57,13 @@ struct AppContext {
 
 	// Mutable game-wide state
 	GameState         gameState          = GameState::MAIN_MENU;
+	WindowMode        windowMode         = WindowMode::WINDOWED_FULLSCREEN;
 	int64_t           currentSeed        = 0;
 	std::string       worldSavePath;
 	WorldFile::Header currentWorldHeader;
+	bool              screenshotRequested = false;
+	int               windowedWidth = 1280;
+	int               windowedHeight = 720;
 
 	// Structure editing session state (set when a .struct file is open for editing)
 	bool             isStructureSession = false;
