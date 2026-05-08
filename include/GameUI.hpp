@@ -23,15 +23,17 @@ enum class GameState {
 };
 
 struct WorldEntry {
-    // path to the .world file
+    // path to the .world or .struct file
     std::string          path;
-    // world name is the name of the .world file
+    // name is the file stem
     std::string          name;
-    // header data from .world file
+    // header data (only populated for .world entries)
     WorldFile::Header    header;
+    // true when this entry represents a .struct editing session
+    bool                 isStructure = false;
 };
 
-inline std::vector<WorldEntry> ScanWorlds(const std::string& worldsDir) {
+inline std::vector<WorldEntry> ScanWorlds(const std::string& worldsDir, const std::string& structuresDir = "") {
     std::vector<WorldEntry> result;
     std::error_code ec;
     for (const auto& entry : std::filesystem::directory_iterator(worldsDir, ec)) {
@@ -42,6 +44,17 @@ inline std::vector<WorldEntry> ScanWorlds(const std::string& worldsDir) {
         WorldFile::ReadHeader(we.path, we.header);
         result.push_back(std::move(we));
     }
+    if (!structuresDir.empty()) {
+        std::error_code sec;
+        for (const auto& entry : std::filesystem::directory_iterator(structuresDir, sec)) {
+            if (entry.path().extension() != ".struct") continue;
+            WorldEntry we;
+            we.path        = entry.path().string();
+            we.name        = entry.path().stem().string();
+            we.isStructure = true;
+            result.push_back(std::move(we));
+        }
+    }
     std::sort(result.begin(), result.end(),
               [](const WorldEntry& a, const WorldEntry& b){ return a.name < b.name; });
     return result;
@@ -49,8 +62,12 @@ inline std::vector<WorldEntry> ScanWorlds(const std::string& worldsDir) {
 
 struct NewWorldParams {
     char     seedBuf[32]  = {};   // text input; empty = random
-    int      worldTypeIdx = 0;    // 0=Default, 1=SingleBiome, 2=Superflat
+    int      worldTypeIdx = 0;    // 0=Default, 1=SingleBiome, 2=Superflat, 3=Structure
     int      biomeIdx     = 0;    // index into BiomeRegistry::Biomes(), used when worldTypeIdx == 1
+
+    // Structure world
+    char     structureNameBuf[64] = {};   // stem name for the exported .struct file
+    int      structureOriginBuf[3] = {};  // local-space origin stored in the .struct header
 
     std::vector<SuperflatLayer> superflatLayers = {
         {2u, 4}, // stone x 4  (bottom)
@@ -64,7 +81,9 @@ struct NewWorldParams {
     WorldFile::Header MakeHeader(const BiomeRegistry* biomes = nullptr) const {
         WorldFile::Header h;
         h.seed      = seedBuf[0] ? std::strtoll(seedBuf, nullptr, 10) : 0LL;
-        h.worldType = static_cast<WorldFile::WorldType>(worldTypeIdx);
+        h.worldType = (worldTypeIdx >= 0 && worldTypeIdx <= 2)
+            ? static_cast<WorldFile::WorldType>(worldTypeIdx)
+            : WorldFile::WorldType::Default;
         if (h.worldType == WorldFile::WorldType::SingleBiome && biomes) {
             const auto& blist = biomes->Biomes();
             if (biomeIdx >= 0 && biomeIdx < static_cast<int>(blist.size()))
@@ -118,16 +137,17 @@ inline bool DrawMainMenu(GameState& next, bool& wantQuit, int winW, int winH) {
     return acted;
 }
 
-// `worldsDir`     – base path where .world files live
-// `selectedIndex` – persistent selection index (caller owns it, init to -1)
-// `wantLoad`      – set true when user double-clicks / presses Load
-// `loadPath`      – set to the chosen world path when wantLoad is true
-// `wantNew`       – set true when user presses New World
-// `wantBack`      – set true when user presses Back
-// `entries`       – world list (refreshed here when empty or on Refresh click)
-inline void DrawWorldsMenu(const std::string& worldsDir, std::vector<WorldEntry>& entries, int& selectedIndex, bool& wantLoad, std::string& loadPath, std::string& loadName, WorldFile::Header& loadHeader, bool& wantNew, bool& wantDelete, bool& wantRename, std::string& renameNewName, bool& wantBack, int winW, int winH)
+// `worldsDir`      – base path where .world files live
+// `structuresDir`  – path to the structures directory (scanned for .struct entries)
+// `selectedIndex`  – persistent selection index (caller owns it, init to -1)
+// `wantLoad`       – set true when user double-clicks / presses Load
+// `loadPath`       – set to the chosen path when wantLoad is true
+// `wantNew`        – set true when user presses New World
+// `wantBack`       – set true when user presses Back
+// `entries`        – world list (refreshed here when empty or on Refresh click)
+inline void DrawWorldsMenu(const std::string& worldsDir, const std::string& structuresDir, std::vector<WorldEntry>& entries, int& selectedIndex, bool& wantLoad, std::string& loadPath, std::string& loadName, WorldFile::Header& loadHeader, bool& wantNew, bool& wantDelete, bool& wantRename, std::string& renameNewName, bool& wantBack, int winW, int winH)
 {
-    if (entries.empty()) entries = ScanWorlds(worldsDir);
+    if (entries.empty()) entries = ScanWorlds(worldsDir, structuresDir);
 
     const float w = std::max(360.0f, winW * 0.5f);
     const float h = std::max(300.0f, winH * 0.6f);
@@ -150,13 +170,17 @@ inline void DrawWorldsMenu(const std::string& worldsDir, std::vector<WorldEntry>
     }
     for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
         const WorldEntry& we = entries[i];
-        const char* typeStr = "Default";
-        if (we.header.worldType == WorldFile::WorldType::SingleBiome) typeStr = "Single Biome";
-        else if (we.header.worldType == WorldFile::WorldType::Superflat) typeStr = "Superflat";
-
         char label[256];
-        std::snprintf(label, sizeof(label), "%s  [%s, seed %lld]##%d",
-                      we.name.c_str(), typeStr, (long long)we.header.seed, i);
+        if (we.isStructure) {
+            std::snprintf(label, sizeof(label), "%s  [Structure]##%d",
+                          we.name.c_str(), i);
+        } else {
+            const char* typeStr = "Default";
+            if (we.header.worldType == WorldFile::WorldType::SingleBiome) typeStr = "Single Biome";
+            else if (we.header.worldType == WorldFile::WorldType::Superflat) typeStr = "Superflat";
+            std::snprintf(label, sizeof(label), "%s  [%s, seed %lld]##%d",
+                          we.name.c_str(), typeStr, (long long)we.header.seed, i);
+        }
 
         if (ImGui::Selectable(label, selectedIndex == i,
                               ImGuiSelectableFlags_AllowDoubleClick)) {
@@ -189,6 +213,8 @@ inline void DrawWorldsMenu(const std::string& worldsDir, std::vector<WorldEntry>
     ImGui::SameLine();
     {
         static char renameBuf[256] = {};
+        const bool isStructSel = selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size()) && entries[selectedIndex].isStructure;
+        ImGui::BeginDisabled(isStructSel);
         if (ImGui::Button("Rename World", ImVec2(btnW, 0))) {
             if (selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size())) {
                 std::snprintf(renameBuf, sizeof(renameBuf), "%s", entries[selectedIndex].name.c_str());
@@ -211,6 +237,7 @@ inline void DrawWorldsMenu(const std::string& worldsDir, std::vector<WorldEntry>
             if (ImGui::Button("Cancel", ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); }
             ImGui::EndPopup();
         }
+        ImGui::EndDisabled();
     }
 
     if (ImGui::Button("Delete", ImVec2(btnW, 0))) {
@@ -220,7 +247,7 @@ inline void DrawWorldsMenu(const std::string& worldsDir, std::vector<WorldEntry>
     }
     ImGui::SameLine();
     if (ImGui::Button("Refresh", ImVec2(btnW, 0))) {
-        entries = ScanWorlds(worldsDir);
+        entries = ScanWorlds(worldsDir, structuresDir);
         selectedIndex = -1;
     }
     ImGui::SameLine();
@@ -231,7 +258,7 @@ inline void DrawWorldsMenu(const std::string& worldsDir, std::vector<WorldEntry>
 
 inline void DrawNewWorldMenu(NewWorldParams& params, bool& wantCreate, bool& wantBack, const BiomeRegistry& biomes, const BlockRegistry& blocks, int winW, int winH)
 {
-    static const char* kWorldTypes[] = {"Default", "Single Biome", "Superflat"};
+    static const char* kWorldTypes[] = {"Default", "Single Biome", "Superflat", "Structure"};
 
     const float w = std::max(params.worldTypeIdx == 2 ? 400.0f : 280.0f,
                              winW * (params.worldTypeIdx == 2 ? 0.38f : 0.28f));
@@ -256,7 +283,21 @@ inline void DrawNewWorldMenu(NewWorldParams& params, bool& wantCreate, bool& wan
     ImGui::Spacing();
     ImGui::Text("World Type:");
     ImGui::SetNextItemWidth(-1);
-    ImGui::Combo("##worldtype", &params.worldTypeIdx, kWorldTypes, 3);
+    ImGui::Combo("##worldtype", &params.worldTypeIdx, kWorldTypes, 4);
+
+    if (params.worldTypeIdx == 3) {
+        ImGui::Spacing();
+        ImGui::Text("Structure Name:");
+        ImGui::SetNextItemWidth(-1);
+        ImGui::InputText("##structname", params.structureNameBuf, sizeof(params.structureNameBuf));
+        ImGui::Spacing();
+        ImGui::Text("Origin (X Y Z):");
+        ImGui::SetNextItemWidth(-1);
+        ImGui::InputInt3("##structorigin", params.structureOriginBuf);
+        ImGui::Spacing();
+        ImGui::TextDisabled("Blocks you place will be saved as a");
+        ImGui::TextDisabled(".struct file when you save and quit.");
+    }
 
     if (params.worldTypeIdx == 1) {
         ImGui::Spacing();
@@ -398,8 +439,10 @@ inline void DrawNewWorldMenu(NewWorldParams& params, bool& wantCreate, bool& wan
         int sfTotal = 0;
         if (params.worldTypeIdx == 2)
             for (const auto& l : params.superflatLayers) sfTotal += l.thickness;
-        ImGui::BeginDisabled(params.worldTypeIdx == 2 && sfTotal > 512);
+        const bool nameNeeded = params.worldTypeIdx == 3 && params.structureNameBuf[0] == '\0';
+        ImGui::BeginDisabled((params.worldTypeIdx == 2 && sfTotal > 512) || nameNeeded);
         if (ImGui::Button("Create", ImVec2(btnW, 0))) { wantCreate = true; }
+        if (nameNeeded) ImGui::SetItemTooltip("Enter a structure name first");
         ImGui::EndDisabled();
     }
     ImGui::SameLine();

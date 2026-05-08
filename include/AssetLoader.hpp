@@ -25,14 +25,18 @@ inline bool LoadBlocks(const std::string& path, const AtlasTexture* atlas, Block
 		if(const auto* v = obj.Get("temp"); v && v->IsFloatRange()) {
 			t.temperatureMin = static_cast<float>(v->AsFloatRange().lo);
 			t.temperatureMax = static_cast<float>(v->AsFloatRange().hi);
+			t.hasGenRules = true;
 		}
 		if(const auto* v = obj.Get("elevation"); v && v->IsIntRange()) {
 			t.elevationMin = static_cast<int>(v->AsIntRange().lo);
 			t.elevationMax = static_cast<int>(v->AsIntRange().hi);
+			t.hasGenRules = true;
+			t.hasElevationRule = true;
 		}
 		if(const auto* v = obj.Get("depth"); v && v->IsIntRange()) {
 			t.depthMin = static_cast<int>(v->AsIntRange().lo);
 			t.depthMax = static_cast<int>(v->AsIntRange().hi);
+			t.hasGenRules = true;
 		}
 		if(const auto* v = obj.Get("biome")) {
 			if(v->IsArray()) {
@@ -40,6 +44,7 @@ inline bool LoadBlocks(const std::string& path, const AtlasTexture* atlas, Block
 					if(elem && elem->IsTag()) t.biomes.push_back(elem->AsTag().name);
 				}
 			}
+			t.hasGenRules = true;
 		} else {
 			t.biomes.push_back("all");
 		}
@@ -54,6 +59,12 @@ inline bool LoadBlocks(const std::string& path, const AtlasTexture* atlas, Block
 		BlockGroupData grp;
 		grp.name    = nameVal->AsString();
 		grp.terrain = parseTerrain(obj);
+		if(const auto* v = obj.Get("gen_tag"); v && v->IsTag()) {
+			const std::string& tag = v->AsTag().name;
+			if      (tag == "blob") grp.genTag = GenTag::Blob;
+			else if (tag == "vein") grp.genTag = GenTag::Vein;
+			else                    grp.genTag = GenTag::Mix;
+		}
 		registry.RegisterGroup(grp);
 	}
 
@@ -99,6 +110,27 @@ inline bool LoadBlocks(const std::string& path, const AtlasTexture* atlas, Block
 		}
 
 		blockDef.terrain = parseTerrain(obj);
+
+		if(const auto* v = obj.Get("gen_tag"); v && v->IsTag()) {
+			const std::string& tag = v->AsTag().name;
+			if      (tag == "blob") blockDef.genTag = GenTag::Blob;
+			else if (tag == "vein") blockDef.genTag = GenTag::Vein;
+			else                    blockDef.genTag = GenTag::Mix;
+			blockDef.hasCustomGenTag = true;
+		}
+
+		if(const auto* v = obj.Get("can_rotate"); v && v->IsArray()) {
+			for(const auto& elem : v->AsArray().elements) {
+				if(!elem) continue;
+				std::string tag;
+				if(elem->IsTag()) tag = elem->AsTag().name;
+				if(tag == "all")                      { blockDef.canRotate.x = blockDef.canRotate.y = blockDef.canRotate.z = true; break; }
+				else if(tag == "none")                { break; }
+				else if(tag == "X" || tag == "x")     blockDef.canRotate.x = true;
+				else if(tag == "Y" || tag == "y")     blockDef.canRotate.y = true;
+				else if(tag == "Z" || tag == "z")     blockDef.canRotate.z = true;
+			}
+		}
 
 		if(!registry.Register(blockDef)) {
 			std::fprintf(stderr, "Block registration failed for ID %u (%s).\n", id, name.c_str());

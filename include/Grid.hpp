@@ -28,12 +28,12 @@ public:
 
     // Add a block at integer grid coordinates (x, y, z) using a registered block ID.
     // Returns false if a block already exists there.
-    bool AddBlock(int x, int y, int z, uint32_t blockID);
+    bool AddBlock(int x, int y, int z, uint32_t blockID, uint8_t rotation = 0);
 
     // Faster bulk variant for world generation and file loading.
     // Skips the existence check and per-block neighbor dirty-marking.
     // The caller must ensure RebuildVisibility() is called afterward.
-    void AddBlockBulk(int x, int y, int z, uint32_t blockID);
+    void AddBlockBulk(int x, int y, int z, uint32_t blockID, uint8_t rotation = 0);
 
     void SetRegistry(const BlockRegistry* registry) { registry_ = registry; }
 
@@ -94,6 +94,9 @@ public:
     // Iterate all placed blocks in world space.
     void VisitBlocks(const std::function<void(const glm::ivec3&, uint32_t)>& callback) const;
 
+    // Get the rotation of a placed block (0 if block does not exist).
+    uint8_t GetBlockRotation(glm::ivec3 pos) const;
+
     // Releases process-wide debug mesh GL resources created in Grid.cpp.
     static void ReleaseSharedGLResources();
 
@@ -112,6 +115,10 @@ public:
     // Maintained incrementally on AddBlock/RemoveBlock/Clear — O(1) per block change.
     const std::unordered_set<glm::ivec3, IVec3Hash>& GravityBlocks() const { return gravityBlocks_; }
 
+    // Mark a resting gravity block as inactive (remove from the active gravity set).
+    // Physics calls this when a block is found to have a solid block below it.
+    void RestGravityBlock(glm::ivec3 pos) { gravityBlocks_.erase(pos); }
+
 private:
     static int      FloorDiv(int a, int b);
     static glm::ivec3 ChunkCoord(glm::ivec3 worldPos);
@@ -121,7 +128,7 @@ private:
     void ForEachBlock(const Ft& callback) const{
         for (const auto& [coord, chunk] : chunks_) {
             const glm::ivec3 origin = coord * Chunk::kSize;
-            chunk->ForEachBlock([&](int lx, int ly, int lz, uint32_t blockID) {
+            chunk->ForEachBlock([&](int lx, int ly, int lz, uint32_t blockID, uint8_t rotation) {
                 callback(origin + glm::ivec3(lx, ly, lz), blockID);
             });
         }

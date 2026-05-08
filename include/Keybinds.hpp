@@ -8,15 +8,24 @@
 
 #include "DataFormat.hpp"
 
-// A set of physical keys that must all be held simultaneously.
+// A set of physical keys that must all be held simultaneously (isSequence=false),
+// or a sequence of keys that must be pressed one after another quickly (isSequence=true).
 struct KeyChord {
     std::vector<SDL_Scancode> keys;
+    bool isSequence = false;
+
+    // Mutable sequence-tracking state (only used when isSequence=true).
+    mutable int      seqStep   = 0;
+    mutable uint64_t seqLastMs = 0;
 };
 
+static constexpr uint32_t kSequenceTimeoutMs = 500u;
+
 // Returns true if every key in the chord is currently held.
-// An empty chord never matches.
+// Sequences cannot be held — always returns false for them.
 inline bool ChordHeld(const bool* keyState, const KeyChord& chord) {
     if (chord.keys.empty()) return false;
+    if (chord.isSequence)   return false;
     for (SDL_Scancode sc : chord.keys) {
         if (sc == SDL_SCANCODE_UNKNOWN) continue;
         if (!keyState[sc]) return false;
@@ -24,11 +33,37 @@ inline bool ChordHeld(const bool* keyState, const KeyChord& chord) {
     return true;
 }
 
-// Returns true if `eventScancode` is one of the chord's keys and every other
-// key in the chord is currently held.  Use this for KEYDOWN event matching.
+// Returns true if `eventScancode` triggers this keybind.
+// For chords: all other keys must be held simultaneously.
+// For sequences: keys must be pressed in order within kSequenceTimeoutMs.
 // An empty chord never matches.
 inline bool ChordPressed(SDL_Scancode eventScancode, const bool* keyState, const KeyChord& chord) {
     if (chord.keys.empty()) return false;
+    if (chord.isSequence) {
+        const uint64_t now = SDL_GetTicks();
+        // Expire the in-progress sequence if too much time has passed.
+        if (chord.seqStep > 0 && (now - chord.seqLastMs) >= kSequenceTimeoutMs) {
+            chord.seqStep   = 0;
+            chord.seqLastMs = 0;
+        }
+        const SDL_Scancode expected = chord.keys[static_cast<std::size_t>(chord.seqStep)];
+        if (eventScancode == expected) {
+            ++chord.seqStep;
+            chord.seqLastMs = now;
+            if (chord.seqStep >= static_cast<int>(chord.keys.size())) {
+                chord.seqStep   = 0;
+                chord.seqLastMs = 0;
+                return true;
+            }
+        } else if (chord.seqStep > 0 && eventScancode == chord.keys[0]) {
+            // Wrong key mid-sequence but it restarts from step 1.
+            chord.seqStep   = 1;
+            chord.seqLastMs = now;
+        } else {
+            chord.seqStep = 0;
+        }
+        return false;
+    }
     bool hasTrigger = false;
     for (SDL_Scancode sc : chord.keys) {
         if (sc == eventScancode) { hasTrigger = true; continue; }
@@ -103,6 +138,7 @@ inline SDL_Scancode KeyTokenToScancode(const std::string& token) {
 
 inline KeyChord ChordFromKeybind(const DataFormat::Keybind& kb) {
     KeyChord chord;
+    chord.isSequence = kb.isSequence;
     for (const std::string& token : kb.keys)
         chord.keys.push_back(KeyTokenToScancode(token));
     return chord;
@@ -220,19 +256,20 @@ inline std::string ScancodeToKeyToken(SDL_Scancode sc) {
     if (sc == SDL_SCANCODE_SEMICOLON)    return ";";
     if (sc == SDL_SCANCODE_APOSTROPHE)   return "'";
     if (sc == SDL_SCANCODE_GRAVE)        return "`";
-    if (sc == SDL_SCANCODE_COMMA)        return ",";
+    if (sc == SDL_SCANCODE_COMMA)        return "\\,"; // comma key: escape as \, so raw , is always a sequence separator
     if (sc == SDL_SCANCODE_PERIOD)       return ".";
     if (sc == SDL_SCANCODE_SLASH)        return "/";
     if (sc == SDL_SCANCODE_BACKSLASH)    return "\\\\";
     return {};
 }
 
-// KeyChord → the <tok+tok+...> literal used in keybinds.data.
+// KeyChord → the <tok+tok+...> or <tok,tok,...> literal used in keybinds.data.
 inline std::string ChordToDataString(const KeyChord& chord) {
     if (chord.keys.empty()) return "<>";
     std::string s = "<";
+    const char sep = chord.isSequence ? ',' : '+';
     for (std::size_t i = 0; i < chord.keys.size(); ++i) {
-        if (i > 0) s += '+';
+        if (i > 0) s += sep;
         const std::string tok = ScancodeToKeyToken(chord.keys[i]);
         s += tok.empty() ? "?" : tok;
     }
@@ -240,12 +277,13 @@ inline std::string ChordToDataString(const KeyChord& chord) {
     return s;
 }
 
-// KeyChord → a human-readable display string, e.g. "Left Alt + F4".
+// KeyChord → a human-readable display string, e.g. "Left Alt + F4" or "Left Ctrl, Left Ctrl".
 inline std::string ChordToDisplayString(const KeyChord& chord) {
     if (chord.keys.empty()) return "(none)";
     std::string s;
+    const std::string sep = chord.isSequence ? ", " : " + ";
     for (std::size_t i = 0; i < chord.keys.size(); ++i) {
-        if (i > 0) s += " + ";
+        if (i > 0) s += sep;
         if (const char* name = SDL_GetScancodeName(chord.keys[i]))
             s += name;
         else

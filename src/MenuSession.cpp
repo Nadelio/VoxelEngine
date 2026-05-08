@@ -12,10 +12,11 @@
 #include "Hotbar.hpp"
 #include "Keybinds.hpp"
 #include "TerrainGen.hpp"
+#include "StructureFile.hpp"
 #include "WorldFile.hpp"
 
 namespace {
-	enum BLOCKS { GRASS = 0, DIRT, STONE, ANDESITE, SAND, SNOW };
+	enum BLOCKS { GRASS = 0, DIRT, STONE, ANDESITE, SAND, SNOW, ICE, OAK_LEAVES, OAK_LOGS };
 }
 
 bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& worldSession) {
@@ -111,7 +112,9 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 		std::string  loadPath, loadName, renameNewName;
 		WorldFile::Header loadHeader;
 
-		DrawWorldsMenu(ctx.worldsDir, worldEntries, selectedIdx,
+		const std::string structuresDir =
+		    (std::filesystem::path(ctx.blocksDataPath).parent_path() / "structures").string();
+		DrawWorldsMenu(ctx.worldsDir, structuresDir, worldEntries, selectedIdx,
 		               wantLoad, loadPath, loadName, loadHeader,
 		               wantNew, wantDelete, wantRename, renameNewName, wantBack,
 		               winW, winH);
@@ -125,7 +128,8 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 			selectedIdx = -1;
 		}
 
-		if(wantRename && selectedIdx >= 0 && selectedIdx < static_cast<int>(worldEntries.size())) {
+		if(wantRename && selectedIdx >= 0 && selectedIdx < static_cast<int>(worldEntries.size())
+		   && !worldEntries[selectedIdx].isStructure) {
 			namespace fs = std::filesystem;
 			const fs::path oldFsPath(worldEntries[selectedIdx].path);
 			const fs::path newFsPath = oldFsPath.parent_path() / (renameNewName + ".world");
@@ -141,28 +145,51 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 		}
 
 		if(wantLoad) {
-			ctx.grid->Clear();
-			WorldFile::Header h;
-			if(WorldFile::Load(loadPath, h, *ctx.grid)) {
-				{
-					namespace fs = std::filesystem;
-					for (const auto& dp : h.datapacks) {
-						const std::string blocksPath  = (fs::path(dp) / "blocks.data").string();
-						const std::string physicsPath = (fs::path(dp) / "physics_constants.data").string();
-						ctx.blockRegistry->Clear();
-						if (!LoadBlocks(blocksPath, ctx.blockAtlas, *ctx.blockRegistry))
-							std::fprintf(stderr, "Warning: data pack missing blocks.data at '%s'\n", blocksPath.c_str());
-						if (LoadPhysicsConstants(physicsPath, *ctx.physicsConstants))
-							ctx.physics->SetConstants(*ctx.physicsConstants);
-					}
+			namespace fs = std::filesystem;
+			const bool loadingStruct =
+			    selectedIdx >= 0 && selectedIdx < static_cast<int>(worldEntries.size())
+			    && worldEntries[selectedIdx].isStructure;
+			if(loadingStruct) {
+				ctx.grid->Clear();
+				StructureFile::Header sh;
+				if(StructureFile::Load(loadPath, sh, *ctx.grid)) {
+					ctx.isStructureSession = true;
+					ctx.structureOrigin    = sh.origin;
+					ctx.hotbar->SetSlot(0, GRASS);    ctx.hotbar->SetSlot(1, DIRT);
+					ctx.hotbar->SetSlot(2, STONE);    ctx.hotbar->SetSlot(3, ANDESITE);
+					ctx.hotbar->SetSlot(4, SAND);     ctx.hotbar->SetSlot(5, SNOW);
+					ctx.hotbar->SetSlot(7, OAK_LEAVES); ctx.hotbar->SetSlot(8, OAK_LOGS);
+					WorldFile::Header dummy;
+					worldSession.Enter(ctx, dummy, loadPath);
+					ctx.gameState = GameState::PLAYING;
+				} else {
+					std::fprintf(stderr, "Warning: failed to load structure '%s'\n", loadPath.c_str());
 				}
-				ctx.hotbar->SetSlot(0, GRASS);    ctx.hotbar->SetSlot(1, DIRT);
-				ctx.hotbar->SetSlot(2, STONE);    ctx.hotbar->SetSlot(3, ANDESITE);
-			ctx.hotbar->SetSlot(4, SAND);     ctx.hotbar->SetSlot(5, SNOW);
-				worldSession.Enter(ctx, h, loadPath);
-				ctx.gameState = GameState::PLAYING;
 			} else {
-				std::fprintf(stderr, "Warning: failed to load world '%s'\n", loadPath.c_str());
+				ctx.isStructureSession = false;
+				ctx.grid->Clear();
+				WorldFile::Header h;
+				if(WorldFile::Load(loadPath, h, *ctx.grid)) {
+					{
+						for (const auto& dp : h.datapacks) {
+							const std::string blocksPath  = (fs::path(dp) / "blocks.data").string();
+							const std::string physicsPath = (fs::path(dp) / "physics_constants.data").string();
+							ctx.blockRegistry->Clear();
+							if (!LoadBlocks(blocksPath, ctx.blockAtlas, *ctx.blockRegistry))
+								std::fprintf(stderr, "Warning: data pack missing blocks.data at '%s'\n", blocksPath.c_str());
+							if (LoadPhysicsConstants(physicsPath, *ctx.physicsConstants))
+								ctx.physics->SetConstants(*ctx.physicsConstants);
+						}
+					}
+					ctx.hotbar->SetSlot(0, GRASS);    ctx.hotbar->SetSlot(1, DIRT);
+					ctx.hotbar->SetSlot(2, STONE);    ctx.hotbar->SetSlot(3, ANDESITE);
+					ctx.hotbar->SetSlot(4, SAND);     ctx.hotbar->SetSlot(5, SNOW);
+					ctx.hotbar->SetSlot(7, OAK_LEAVES); ctx.hotbar->SetSlot(8, OAK_LOGS);
+					worldSession.Enter(ctx, h, loadPath);
+					ctx.gameState = GameState::PLAYING;
+				} else {
+					std::fprintf(stderr, "Warning: failed to load world '%s'\n", loadPath.c_str());
+				}
 			}
 		}
 
@@ -173,17 +200,16 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 		if(wantBack) { ctx.gameState = GameState::WORLDS_MENU; }
 
 		if(wantCreate) {
-			WorldFile::Header h = newWorldParams.MakeHeader(ctx.biomeRegistry);
-			if(h.seed == 0) {
-				h.seed = static_cast<int64_t>(SDL_GetPerformanceCounter());
-				if(h.seed == 0) h.seed = 1;
-			}
+			namespace fs = std::filesystem;
+			if(newWorldParams.worldTypeIdx == 3) {
+				const std::string structDir =
+				    (fs::path(ctx.blocksDataPath).parent_path() / "structures").string();
+				fs::create_directories(structDir);
+				const std::string structPath =
+				    (fs::path(structDir) / (std::string(newWorldParams.structureNameBuf) + ".struct")).string();
 
-			ctx.grid->Clear();
-
-			{
-				namespace fs = std::filesystem;
-				for (const auto& dp : h.datapacks) {
+				ctx.grid->Clear();
+				for (const auto& dp : newWorldParams.datapacks) {
 					const std::string blocksPath  = (fs::path(dp) / "blocks.data").string();
 					const std::string physicsPath = (fs::path(dp) / "physics_constants.data").string();
 					ctx.blockRegistry->Clear();
@@ -192,32 +218,77 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 					if (LoadPhysicsConstants(physicsPath, *ctx.physicsConstants))
 						ctx.physics->SetConstants(*ctx.physicsConstants);
 				}
-			}
 
-			TerrainGen::Params genParams;
-			genParams.seed = h.seed;
-			if(h.worldType == WorldFile::WorldType::Superflat) {
-				genParams.superflatLayers = h.superflatLayers;
-				if(genParams.superflatLayers.empty()) {
-					genParams.noiseScale      = 0.0001f;
-					genParams.heightAmplitude = 0;
-					genParams.baseHeight      = 0;
+				ctx.isStructureSession = true;
+				ctx.structureOrigin    = {
+				    newWorldParams.structureOriginBuf[0],
+				    newWorldParams.structureOriginBuf[1],
+				    newWorldParams.structureOriginBuf[2]
+				};
+
+				ctx.hotbar->SetSlot(0, GRASS);      ctx.hotbar->SetSlot(1, DIRT);
+				ctx.hotbar->SetSlot(2, STONE);      ctx.hotbar->SetSlot(3, ANDESITE);
+				ctx.hotbar->SetSlot(4, SAND);       ctx.hotbar->SetSlot(5, SNOW);
+				ctx.hotbar->SetSlot(7, OAK_LEAVES); ctx.hotbar->SetSlot(8, OAK_LOGS);
+
+				for(int dx = -2; dx <= 2; ++dx) {
+					for(int dz = -2; dz <= 2; ++dz) {
+						ctx.grid->AddBlock(dx, ctx.structureOrigin.y, dz, GRASS);
+					}
 				}
-			} else if(h.worldType == WorldFile::WorldType::SingleBiome) {
-				genParams.forceBiome = h.singleBiome;
+
+				WorldFile::Header dummy;
+				worldSession.Enter(ctx, dummy, structPath);
+				ctx.gameState = GameState::PLAYING;
+			} else {
+				WorldFile::Header h = newWorldParams.MakeHeader(ctx.biomeRegistry);
+				if(h.seed == 0) {
+					h.seed = static_cast<int64_t>(SDL_GetPerformanceCounter());
+					if(h.seed == 0) h.seed = 1;
+				}
+
+				ctx.grid->Clear();
+
+				{
+					for (const auto& dp : h.datapacks) {
+						const std::string blocksPath  = (fs::path(dp) / "blocks.data").string();
+						const std::string physicsPath = (fs::path(dp) / "physics_constants.data").string();
+						ctx.blockRegistry->Clear();
+						if (!LoadBlocks(blocksPath, ctx.blockAtlas, *ctx.blockRegistry))
+							std::fprintf(stderr, "Warning: data pack missing blocks.data at '%s'\n", blocksPath.c_str());
+						if (LoadPhysicsConstants(physicsPath, *ctx.physicsConstants))
+							ctx.physics->SetConstants(*ctx.physicsConstants);
+					}
+				}
+
+				TerrainGen::Params genParams;
+				genParams.seed = h.seed;
+				if(h.worldType == WorldFile::WorldType::Superflat) {
+					genParams.superflatLayers = h.superflatLayers;
+					if(genParams.superflatLayers.empty()) {
+						genParams.noiseScale      = 0.0001f;
+						genParams.heightAmplitude = 0;
+						genParams.baseHeight      = 0;
+					}
+				} else if(h.worldType == WorldFile::WorldType::SingleBiome) {
+					genParams.forceBiome = h.singleBiome;
+				}
+				genParams.structuresDir =
+				    (fs::path(ctx.blocksDataPath).parent_path() / "structures").string();
+				TerrainGen::Generate(*ctx.grid, *ctx.blockRegistry, ctx.biomeRegistry, genParams);
+
+				ctx.hotbar->SetSlot(0, GRASS);    ctx.hotbar->SetSlot(1, DIRT);
+				ctx.hotbar->SetSlot(2, STONE);    ctx.hotbar->SetSlot(3, ANDESITE);
+				ctx.hotbar->SetSlot(4, SAND);     ctx.hotbar->SetSlot(5, SNOW);
+				ctx.hotbar->SetSlot(7, OAK_LEAVES); ctx.hotbar->SetSlot(8, OAK_LOGS);
+
+				fs::create_directories(ctx.worldsDir);
+				const std::string newPath = ctx.worldsDir + std::to_string(h.seed) + ".world";
+				WorldFile::Save(newPath, h, *ctx.grid);
+
+				worldSession.Enter(ctx, h, newPath);
+				ctx.gameState = GameState::PLAYING;
 			}
-			TerrainGen::Generate(*ctx.grid, *ctx.blockRegistry, ctx.biomeRegistry, genParams);
-
-			ctx.hotbar->SetSlot(0, GRASS);    ctx.hotbar->SetSlot(1, DIRT);
-			ctx.hotbar->SetSlot(2, STONE);    ctx.hotbar->SetSlot(3, ANDESITE);
-			ctx.hotbar->SetSlot(4, SAND);     ctx.hotbar->SetSlot(5, SNOW);
-
-			std::filesystem::create_directories(ctx.worldsDir);
-			const std::string newPath = ctx.worldsDir + std::to_string(h.seed) + ".world";
-			WorldFile::Save(newPath, h, *ctx.grid);
-
-			worldSession.Enter(ctx, h, newPath);
-			ctx.gameState = GameState::PLAYING;
 		}
 	}
 

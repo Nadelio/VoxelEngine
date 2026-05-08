@@ -2,6 +2,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 #include "WorldFile.hpp"
+#include "Compress.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -132,8 +133,8 @@ bool WorldFile::Save(const std::string& path,
     // header
     // magic
     if (std::fwrite("VXLW", 1, 4, f) != 4)          goto fail;
-    // version 2
-    if (!writeU8(f, 2))                               goto fail;
+    // version 4
+    if (!writeU8(f, 4))                               goto fail;
     // seed (int64)
     if (!writeI64(f, header.seed))                    goto fail;
     // world type
@@ -167,15 +168,23 @@ bool WorldFile::Save(const std::string& path,
 
     // block records
     {
-        bool ok = true;
+        std::vector<uint8_t> raw;
         grid.VisitBlocks([&](const glm::ivec3& pos, uint32_t blockID) {
-            if (!ok) return;
-            if (!writeU32(f, blockID))     { ok = false; return; }
-            if (!writeI32(f, pos.x))       { ok = false; return; }
-            if (!writeI32(f, pos.y))       { ok = false; return; }
-            if (!writeI32(f, pos.z))       { ok = false; return; }
+            auto pushU32 = [&](uint32_t v) {
+                raw.push_back(static_cast<uint8_t>(v        & 0xFF));
+                raw.push_back(static_cast<uint8_t>((v >>  8) & 0xFF));
+                raw.push_back(static_cast<uint8_t>((v >> 16) & 0xFF));
+                raw.push_back(static_cast<uint8_t>((v >> 24) & 0xFF));
+            };
+            pushU32(blockID);
+            pushU32(static_cast<uint32_t>(pos.x));
+            pushU32(static_cast<uint32_t>(pos.y));
+            pushU32(static_cast<uint32_t>(pos.z));
+            raw.push_back(grid.GetBlockRotation(pos));
         });
-        if (!ok) goto fail;
+        std::vector<uint8_t> payload;
+        if (!Compress::Encode(raw.data(), raw.size(), payload)) goto fail;
+        if (std::fwrite(payload.data(), 1, payload.size(), f) != payload.size()) goto fail;
     }
 
     std::fclose(f);
@@ -200,7 +209,7 @@ bool WorldFile::Load(const std::string& path,
 
     // version
     uint8_t version;
-    if (!readU8(f, version) || (version != 1 && version != 2)) goto fail;
+    if (!readU8(f, version) || version < 1 || version > 4) goto fail;
 
     // seed
     if (version == 1) {
@@ -265,26 +274,69 @@ bool WorldFile::Load(const std::string& path,
         if (!readU8(f, sentinel) || sentinel != 0xFF) goto fail;
     }
 
-    // block records — load into a staging list so we only touch the grid on full success
+    // block records
     {
-        struct BlockRecord { uint32_t id; int32_t x, y, z; };
+        struct BlockRecord { uint32_t id; int32_t x, y, z; uint8_t rotation = 0; };
         std::vector<BlockRecord> records;
 
-        for (;;) {
-            uint32_t id;
-            if (!readU32(f, id)) {
-                if (std::feof(f)) break; // clean end of file
-                goto fail;
+        if (version == 4) {
+            std::vector<uint8_t> fileBuf;
+            {
+                uint8_t chunk[4096];
+                std::size_t n;
+                while ((n = std::fread(chunk, 1, sizeof(chunk), f)) > 0)
+                    fileBuf.insert(fileBuf.end(), chunk, chunk + n);
             }
-            int32_t x, y, z;
-            if (!readI32(f, x) || !readI32(f, y) || !readI32(f, z)) goto fail;
-            records.push_back({id, x, y, z});
+            std::vector<uint8_t> raw;
+            if (!Compress::Decode(fileBuf.data(), fileBuf.size(), raw)) goto fail;
+            std::size_t pos = 0;
+            const std::size_t rawLen = raw.size();
+            while (pos + 17 <= rawLen) {
+                BlockRecord r;
+                r.id = static_cast<uint32_t>(raw[pos])
+                     | (static_cast<uint32_t>(raw[pos+1]) <<  8)
+                     | (static_cast<uint32_t>(raw[pos+2]) << 16)
+                     | (static_cast<uint32_t>(raw[pos+3]) << 24);
+                pos += 4;
+                r.x = static_cast<int32_t>(static_cast<uint32_t>(raw[pos])
+                    | (static_cast<uint32_t>(raw[pos+1]) <<  8)
+                    | (static_cast<uint32_t>(raw[pos+2]) << 16)
+                    | (static_cast<uint32_t>(raw[pos+3]) << 24));
+                pos += 4;
+                r.y = static_cast<int32_t>(static_cast<uint32_t>(raw[pos])
+                    | (static_cast<uint32_t>(raw[pos+1]) <<  8)
+                    | (static_cast<uint32_t>(raw[pos+2]) << 16)
+                    | (static_cast<uint32_t>(raw[pos+3]) << 24));
+                pos += 4;
+                r.z = static_cast<int32_t>(static_cast<uint32_t>(raw[pos])
+                    | (static_cast<uint32_t>(raw[pos+1]) <<  8)
+                    | (static_cast<uint32_t>(raw[pos+2]) << 16)
+                    | (static_cast<uint32_t>(raw[pos+3]) << 24));
+                pos += 4;
+                r.rotation = raw[pos++];
+                records.push_back(r);
+            }
+        } else {
+            for (;;) {
+                uint32_t id;
+                if (!readU32(f, id)) {
+                    if (std::feof(f)) break;
+                    goto fail;
+                }
+                int32_t x, y, z;
+                if (!readI32(f, x) || !readI32(f, y) || !readI32(f, z)) goto fail;
+                uint8_t rot = 0;
+                if (version >= 3) {
+                    if (!readU8(f, rot)) goto fail;
+                }
+                records.push_back({id, x, y, z, rot});
+            }
         }
 
         // clear and fill the grid.
         grid.Clear();
         for (const auto& r : records) {
-            grid.AddBlockBulk(r.x, r.y, r.z, r.id);
+            grid.AddBlockBulk(r.x, r.y, r.z, r.id, r.rotation);
         }
     }
 
@@ -307,7 +359,7 @@ bool WorldFile::ReadHeader(const std::string& path, Header& headerOut) {
     if (std::fread(magic, 1, 4, f) != 4 || std::memcmp(magic, "VXLW", 4) != 0) goto fail;
 
     uint8_t version;
-    if (!readU8(f, version) || (version != 1 && version != 2)) goto fail;
+    if (!readU8(f, version) || version < 1 || version > 4) goto fail;
 
     // seed
     if (version == 1) {

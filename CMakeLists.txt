@@ -98,6 +98,7 @@ add_executable(VoxelEngine
     src/MenuSession.cpp
     src/Physics.cpp
     src/Shader.cpp
+    src/StructureFile.cpp
     src/TerrainGen.cpp
     src/WorldFile.cpp
     src/WorldSession.cpp

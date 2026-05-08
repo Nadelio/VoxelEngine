@@ -18,8 +18,12 @@ namespace DataFormat {
     /// An inclusive range whose endpoints are (or include) floats, e.g. 0.0..1.0.
     struct FloatRange { double  lo, hi; };
 
-    /// A keybind chord literal, e.g. <F3+w>. Each element is a key token string.
-    struct Keybind { std::vector<std::string> keys; };
+    /// A keybind literal, e.g. <F3+w> (simultaneous) or <f,g> (sequence).
+    /// isSequence=true means the keys must be pressed one after another quickly.
+    struct Keybind {
+        std::vector<std::string> keys;
+        bool isSequence = false;
+    };
 
     struct Value;
 

@@ -45,9 +45,9 @@
 
 struct WorldFile {
     enum class WorldType : uint8_t {
-        Default    = 0,
+        Default     = 0,
         SingleBiome = 1,
-        Superflat  = 2,
+        Superflat   = 2,
     };
 
     // Metadata stored in the file header.

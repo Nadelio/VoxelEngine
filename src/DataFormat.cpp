@@ -391,6 +391,10 @@ namespace DataFormat {
                     } else if (raw[i] == '+') {
                         if (!tok.empty()) { kb.keys.push_back(tok); tok.clear(); }
                         ++i;
+                    } else if (raw[i] == ',') {
+                        if (!tok.empty()) { kb.keys.push_back(tok); tok.clear(); }
+                        kb.isSequence = true;
+                        ++i;
                     } else {
                         tok += raw[i];
                         ++i;

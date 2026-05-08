@@ -66,6 +66,10 @@ public:
                          bool crawlToggleThisFrame,
                          const PhysicsConstants& constants);
 
+    void StepEntityFlying(Entity& entity,
+                          float deltaSeconds,
+                          const glm::vec3& desiredVelocity);
+
     void SetConstants(const PhysicsConstants& constants) { constants_ = constants; }
     const PhysicsConstants& GetConstants() const { return constants_; }
 
