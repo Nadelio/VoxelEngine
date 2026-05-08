@@ -133,6 +133,7 @@ cmake --build build -j
 		- Two layers
 			- Empty hearts/hunger/thirst layer
 			- Full/Half hearts/hunger/thirst layer
+	- Fix various UI resizing issues
 - Terrain Generation
 	- Infinite worlds
 		- Loading/Unloading chunks based on distance from center of chunk
