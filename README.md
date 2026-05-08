@@ -12,11 +12,10 @@ Totally didn't copy the greedy meshing code from some random research paper I fo
 Eventually I will replace the UI draw calls with texture draw calls\
 Not today tho
 
-![Voxel Engine Title Screen](assets_repo/title_screen.png)
 ![In-Game Screenshot](assets_repo/in_game_screenshot.png)
-![Keybinds Settings Screen](assets_repo/keybinds_settings_screen.png)
 ![House Screenshot](assets_repo/house_screenshot.png)
 ![Plains Biome Screenshot](assets_repo/plains_biome_screenshot.png)
+![Arm Model Preview Screenshot](assets_repo/arm_model_preview_screenshot.png)
 
 ## AI Usage Disclaimer
 I did use Copilot for the `CMakeLists.txt` and `main.yml` files (mainly because IDK the first thing about either).\

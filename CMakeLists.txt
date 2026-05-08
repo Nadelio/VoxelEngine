@@ -94,10 +94,12 @@ add_executable(VoxelEngine
     src/DebugOverlay.cpp
     src/FileDialog.cpp
     src/Grid.cpp
+    src/HandModel.cpp
     src/Hotbar.cpp
     src/MenuSession.cpp
     src/Physics.cpp
     src/Shader.cpp
+    src/SkinTexture.cpp
     src/StructureFile.cpp
     src/TerrainGen.cpp
     src/WorldFile.cpp

@@ -1,4 +1,4 @@
 build/
-assets/local
+local/
 .vscode/
 build.nu

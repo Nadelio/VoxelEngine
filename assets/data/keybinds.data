@@ -10,6 +10,10 @@
 
 # general
 quit                 : <LA+F4>
+pause                : <ES>
+ui_toggle            : <F1>
+screenshot           : <F2>
+view_toggle          : <F5>
 move_forward         : <w>
 move_back            : <s>
 move_left            : <a>

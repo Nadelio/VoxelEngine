@@ -2,6 +2,9 @@
 #include <cstdio>
 #include <string>
 #include <memory>
+#include <array>
+#include <vector>
+#include <cstring>
 #include <filesystem>
 #include <type_traits>
 
@@ -31,16 +34,6 @@
 
 /*
 TODO:
-- Terrain Generation 
-	- Structure generation
-		- Boulders
-- Hand model
-	- Held block models
-	- Held item models
-	- Interaction animations
-		- Breaking block (swing hand)
-		- Placing block (swing hand)
-		- Picking block (point)
 - Player model
 	- Skins
 	- Capes
@@ -50,13 +43,11 @@ TODO:
 		- Jumping animation
 		- Crouching animation
 		- Crawling animation
-- UI
-	- Add F1 keybind to hide all UI and 1st person view model
-	- Add F2 keybind to take a screenshot of the game
 - New blocks
 	- Water
 		- Fluids
 		- Swimmming
+			- Swimming animation
 		- Water generates based on elevation
 	- Wood
 		- Saplings
@@ -70,6 +61,14 @@ TODO:
 		- Surface water freezes based on temperature
 	- Glass
 		- Transparency
+- Rendering
+	- Add fog to help cover up unloaded chunks
+	- Add skybox (that rotates between night/day)
+	- Add ambient occlusion
+	- Add shadows
+	- Add global lighting (based on time of day)
+	- Add colored point lighting
+	- Add block materials (like shine for ice blocks and transparency for water and glass)
 - Survival mode
 	- Crafting
 		- Crafting table
@@ -124,18 +123,19 @@ TODO:
 		- Two layers
 			- Empty hearts/hunger/thirst layer
 			- Full/Half hearts/hunger/thirst layer
+	- Fix various UI resizing issues
 - Terrain Generation
 	- Infinite worlds
 		- Loading/Unloading chunks based on distance from center of chunk
 	- Cave generation
-- Rendering
-	- Add fog to help cover up unloaded chunks
-	- Add skybox (that rotates between night/day)
-	- Add ambient occlusion
-	- Add shadows
-	- Add global lighting (based on time of day)
-	- Add colored point lighting
-	- Add block materials (like shine for ice blocks and transparency for water and glass)
+	- Structures
+		- Boulders (need to build these manually)
+- Arm model
+	- Interaction animations (these need to be tweaked manually)
+		- Breaking block (swing hand)
+		- Placing block (swing hand)
+		- Picking block (point)
+		- Arm model root position
 */
 
 using namespace std::literals::string_view_literals;
@@ -181,6 +181,68 @@ namespace {
 	[[noreturn]] void quit(int code) {
 		SDL_Quit();
 		std::exit(code);
+	}
+
+	void ApplyWindowMode(AppContext& ctx, WindowMode mode) {
+		SDL_SetWindowFullscreen(ctx.window, false);
+		SDL_RestoreWindow(ctx.window);
+
+		if(mode == WindowMode::WINDOWED) {
+			SDL_SetWindowBordered(ctx.window, true);
+			SDL_SetWindowResizable(ctx.window, true);
+			SDL_SetWindowSize(ctx.window, ctx.windowedWidth, ctx.windowedHeight);
+		} else if(mode == WindowMode::WINDOWED_FULLSCREEN) {
+			SDL_SetWindowBordered(ctx.window, false);
+			SDL_SetWindowResizable(ctx.window, true);
+			SDL_MaximizeWindow(ctx.window);
+		} else {
+			SDL_SetWindowBordered(ctx.window, false);
+			SDL_SetWindowResizable(ctx.window, false);
+			SDL_SetWindowFullscreen(ctx.window, true);
+		}
+		ctx.windowMode = mode;
+	}
+
+	bool SaveScreenshotPNG(SDL_Window* window, const std::string& path) {
+		int width = 0;
+		int height = 0;
+		SDL_GetWindowSize(window, &width, &height);
+		if(width <= 0 || height <= 0) {
+			return false;
+		}
+
+		SDL_Surface* surface = SDL_CreateSurface(width, height, SDL_PIXELFORMAT_RGBA32);
+		if(surface == nullptr) {
+			return false;
+		}
+
+		glPixelStorei(GL_PACK_ALIGNMENT, 1);
+		glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, surface->pixels);
+
+		auto* pixels = static_cast<unsigned char*>(surface->pixels);
+		const int pitch = surface->pitch;
+		std::vector<unsigned char> tempRow(static_cast<std::size_t>(pitch));
+		for(int y = 0; y < height / 2; ++y) {
+			unsigned char* top = pixels + static_cast<std::size_t>(y) * static_cast<std::size_t>(pitch);
+			unsigned char* bottom = pixels + static_cast<std::size_t>(height - 1 - y) * static_cast<std::size_t>(pitch);
+			std::memcpy(tempRow.data(), top, static_cast<std::size_t>(pitch));
+			std::memcpy(top, bottom, static_cast<std::size_t>(pitch));
+			std::memcpy(bottom, tempRow.data(), static_cast<std::size_t>(pitch));
+		}
+
+		const bool ok = SDL_SavePNG(surface, path.c_str());
+		SDL_DestroySurface(surface);
+		return ok;
+	}
+
+	std::string BuildScreenshotPath() {
+		std::filesystem::path screenshotsDir = "screenshots";
+		if(const char* base = SDL_GetBasePath()) {
+			screenshotsDir = std::filesystem::path(base) / "screenshots";
+		}
+		std::filesystem::create_directories(screenshotsDir);
+		const std::string filename = "screenshot_" + std::to_string(SDL_GetTicks()) + ".png";
+		return (screenshotsDir / filename).string();
 	}
 }
 
@@ -347,6 +409,8 @@ int main() {
 	ctx.blocksDataPath = blocksDataPath;
 	ctx.physicsConstantsPath = physicsConstantsPath;
 	ctx.keybindsDataPath = keybindsDataPath;
+	SDL_GetWindowSize(ctx.window, &ctx.windowedWidth, &ctx.windowedHeight);
+	ApplyWindowMode(ctx, WindowMode::WINDOWED_FULLSCREEN);
 
 	// init handlers
 	WorldSession worldSession;
@@ -436,6 +500,16 @@ int main() {
 			if(menuSession.Frame(winWidth, winHeight, ctx, worldSession)) {
 				goto stop_mainloop;
 			}
+		}
+
+		if(ctx.screenshotRequested) {
+			const std::string screenshotPath = BuildScreenshotPath();
+			if(SaveScreenshotPNG(window.get(), screenshotPath)) {
+				std::fprintf(stderr, "Screenshot saved to: %s\n", screenshotPath.c_str());
+			} else {
+				std::fprintf(stderr, "Warning: screenshot capture failed (%s)\n", SDL_GetError());
+			}
+			ctx.screenshotRequested = false;
 		}
 
 		SDL_GL_SwapWindow(window.get());

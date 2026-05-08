@@ -459,6 +459,8 @@ inline void DrawSettingsMenu(
     std::string& pickedItemAtlasPath,
     std::string& pickedResourcePackPath,
     std::string& pickedDataPackPath,
+    int& windowModeIdx,
+    bool& windowModeChanged,
     int winW, int winH)
 {
     const float w = std::max(280.0f, winW * 0.30f);
@@ -480,6 +482,13 @@ inline void DrawSettingsMenu(
     ImGui::SeparatorText("Controls");
     if (ImGui::Button("Edit Keybinds", ImVec2(btnW, 0)))
         wantOpenControls = true;
+    ImGui::Spacing();
+
+    ImGui::SeparatorText("Display");
+    const char* windowModes[] = {"Windowed", "Windowed Fullscreen", "Exclusive Fullscreen"};
+    ImGui::SetNextItemWidth(btnW);
+    if (ImGui::Combo("##window_mode", &windowModeIdx, windowModes, 3))
+        windowModeChanged = true;
     ImGui::Spacing();
 
     ImGui::SeparatorText("Texture Pack");
@@ -515,6 +524,9 @@ inline void DrawControlsMenu(Keybinds& kb, int& listeningIdx, bool& wantBack, in
         {"General",          nullptr},
         {"Quit",             &kb.quit},
         {"Pause",            &kb.pause},
+        {"Toggle UI",        &kb.ui_toggle},
+        {"Screenshot",       &kb.screenshot},
+        {"Toggle 1st/3rd",   &kb.view_toggle},
         {"Move Forward",     &kb.move_forward},
         {"Move Backward",    &kb.move_back},
         {"Move Left",        &kb.move_left},
