@@ -6,7 +6,7 @@
 # Misc keys     : ES (esc)  CL (capslock)  B (backspace)  EN (enter)
 #                 D (delete)  T (tab)  SP (space)
 # Function keys : F1 F2 F3 ... F12
-# Special chars : \< \> \+ \\ (literal <  >  +  \)
+# Special chars : \< \> \+ \, \\ (literal <  >  +  ,  \)
 
 # general
 quit                 : <LA+F4>
@@ -16,7 +16,7 @@ move_left            : <a>
 move_right           : <d>
 jump                 : <SP>
 crouch               : <LC>
-crawl_toggle         : <LC+LS>
+crawl_toggle         : <LC,LC>
 
 # hotbar
 hotbar_1             : <1>

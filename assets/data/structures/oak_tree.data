@@ -1,0 +1,24 @@
+# Structure generation rules
+# frequency     : probability per eligible column that this structure spawns (0.0..1.0)
+# parent        : name of the parent structure this belongs to, or `none` for standalone
+# group         : structure group tag (controls which pass may place this structure)
+# rotations     : allowed Y-axis rotations in degrees — any subset of int[0, 90, 180, 270]
+# required      : if true, at least one copy must appear per generation pass
+# max_instances : maximum copies per generation pass (-1 = unlimited)
+# variants      : .struct file stems to pick from when spawning (omit to use the def's own stem)
+# weights       : relative spawn probability per variant (omit for uniform weighting)
+# biomes        : biomes the structures are allowed to be generated in
+# biome_multiple: multiplies the frequency of the structure based on the biome
+
+structure : {
+    frequency     : 0.005,
+    parent        : none,
+    group         : surface,
+    rotations     : int[0, 90, 180, 270],
+    required      : false,
+    max_instances : -1,
+    variants      : string["oak_tree_small", "oak_tree_medium", "oak_tree_large"],
+    weights       : float[1.25, 0.75, 0.25],
+    biomes        : tag[plains, forest],
+    biome_multiple: float[1.0, 3.0]
+}

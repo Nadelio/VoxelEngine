@@ -16,6 +16,7 @@ Not today tho
 ![In-Game Screenshot](assets_repo/in_game_screenshot.png)
 ![Keybinds Settings Screen](assets_repo/keybinds_settings_screen.png)
 ![House Screenshot](assets_repo/house_screenshot.png)
+![Plains Biome Screenshot](assets_repo/plains_biome_screenshot.png)
 
 ## AI Usage Disclaimer
 I did use Copilot for the `CMakeLists.txt` and `main.yml` files (mainly because IDK the first thing about either).\

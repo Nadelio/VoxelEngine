@@ -37,6 +37,18 @@ namespace {
         {1, +1, 0, 2, false, true },  // 4: Top    (+Y)
         {1, -1, 0, 2, false, false},  // 5: Bottom (-Y)
     };
+
+    // For each block rotation (upDir), maps geometry face index → FaceTileMap source index.
+    // Geometry faces: Front=0(+Z), Back=1(-Z), Left=2(-X), Right=3(+X), Top=4(+Y), Bottom=5(-Y)
+    // upDir: 0=+Y(identity), 1=-Y(flipped), 2=+X(R_z -90°), 3=-X(R_z +90°), 4=+Z(R_x +90°), 5=-Z(R_x -90°)
+    static constexpr int kFaceRemap[6][6] = {
+        {0,1,2,3,4,5},  // 0: +Y up (identity)
+        {1,0,2,3,5,4},  // 1: -Y up (upside-down)
+        {0,1,5,4,2,3},  // 2: +X up (tilted right)
+        {0,1,4,5,3,2},  // 3: -X up (tilted left)
+        {4,5,2,3,1,0},  // 4: +Z up (tilted forward)
+        {5,4,2,3,0,1},  // 5: -Z up (tilted backward)
+    };
 }
 
 Chunk::~Chunk() {
@@ -106,12 +118,17 @@ uint32_t Chunk::GetBlockID(int lx, int ly, int lz) const {
     return blocks_[lx][ly][lz].blockID;
 }
 
-void Chunk::SetBlock(int lx, int ly, int lz, uint32_t blockID) {
+uint8_t Chunk::GetBlockRotation(int lx, int ly, int lz) const {
+    return blocks_[lx][ly][lz].rotation;
+}
+
+void Chunk::SetBlock(int lx, int ly, int lz, uint32_t blockID, uint8_t rotation) {
     if (!blocks_[lx][ly][lz].exists) {
         ++blockCount_;
     }
-    blocks_[lx][ly][lz].exists  = true;
-    blocks_[lx][ly][lz].blockID = blockID;
+    blocks_[lx][ly][lz].exists   = true;
+    blocks_[lx][ly][lz].blockID  = blockID;
+    blocks_[lx][ly][lz].rotation = rotation;
     dirty_ = true;
 }
 
@@ -177,7 +194,9 @@ bool Chunk::RebuildMesh(glm::ivec3 chunkOrigin, const AtlasTexture& atlas, const
                 const BlockData* blockData = registry.Get(blockID);
                 if (!blockData) { mask[u][v] = {}; continue; }
 
-                const FaceTile& tile = blockData->faceTiles.at(f);
+                const uint8_t rot = blocks_[lp.x][lp.y][lp.z].rotation;
+                const int srcFace = (rot < 6) ? kFaceRemap[rot][f] : f;
+                const FaceTile& tile = blockData->faceTiles.at(static_cast<std::size_t>(srcFace));
                 mask[u][v] = {true, tile.x, tile.y};
             }}
 

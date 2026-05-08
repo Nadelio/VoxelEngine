@@ -24,7 +24,8 @@ public:
 
     bool HasBlock(int lx, int ly, int lz) const;
     uint32_t GetBlockID(int lx, int ly, int lz) const;
-    void SetBlock(int lx, int ly, int lz, uint32_t blockID);
+    uint8_t GetBlockRotation(int lx, int ly, int lz) const;
+    void SetBlock(int lx, int ly, int lz, uint32_t blockID, uint8_t rotation = 0);
     bool RemoveBlock(int lx, int ly, int lz);
 
     void MarkDirty() { dirty_ = true; }
@@ -38,14 +39,14 @@ public:
     void Draw() const;
     void DrawWireframe() const;
 
-    // Iterate every set block: callback(localX, localY, localZ, blockID)
+    // Iterate every set block: callback(localX, localY, localZ, blockID, rotation)
     template<typename Ft>
     void ForEachBlock(const Ft& callback) const{
         for (int lx = 0; lx < kSize; ++lx)
         for (int ly = 0; ly < kSize; ++ly)
         for (int lz = 0; lz < kSize; ++lz) {
             if (blocks_[lx][ly][lz].exists) {
-                callback(lx, ly, lz, blocks_[lx][ly][lz].blockID);
+                callback(lx, ly, lz, blocks_[lx][ly][lz].blockID, blocks_[lx][ly][lz].rotation);
             }
         }
     }
@@ -59,8 +60,9 @@ private:
     static bool LoadGLFunctions();
 
     struct CellData {
-        bool exists = false;
-        uint32_t blockID = 0;
+        bool     exists   = false;
+        uint32_t blockID  = 0;
+        uint8_t  rotation = 0;
     };
 
     CellData blocks_[kSize][kSize][kSize]{};

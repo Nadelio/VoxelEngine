@@ -8,6 +8,13 @@
 #include "AtlasTexture.hpp"
 #include "CubeMesh.hpp"
 
+// Controls the spatial distribution pattern used during terrain generation.
+enum class GenTag {
+    Mix,   // randomly distributed wherever terrain rules match (default)
+    Blob,  // only appears inside 3-D noise blobs
+    Vein,  // only appears inside elongated vein-shaped noise regions
+};
+
 // Describes where a block may appear during terrain generation.
 struct TerrainInfo {
     float temperatureMin = -1.0f;
@@ -17,6 +24,8 @@ struct TerrainInfo {
     int   depthMin       =    0; // 0 = surface
     int   depthMax       =  255;
     std::vector<std::string> biomes; // empty = any biome
+    bool  hasGenRules      = false; // true only when at least one rule was explicitly defined
+    bool  hasElevationRule = false; // true only when `elevation` key was explicitly present in data
 };
 
 // Shared terrain generation rules for a named group of blocks.
@@ -24,6 +33,14 @@ struct TerrainInfo {
 struct BlockGroupData {
     std::string name;
     TerrainInfo terrain{};
+    GenTag      genTag = GenTag::Mix;
+};
+
+struct RotateAxes {
+    bool x = false;
+    bool y = false;
+    bool z = false;
+    bool any() const { return x || y || z; }
 };
 
 struct BlockData {
@@ -34,6 +51,9 @@ struct BlockData {
     bool affectedByGravity = false;
     std::vector<std::string> groups;
     TerrainInfo terrain{};
+    GenTag      genTag = GenTag::Mix;
+    bool        hasCustomGenTag = false; // true only when gen_tag was explicitly defined
+    RotateAxes  canRotate;
 };
 
 class BlockRegistry {

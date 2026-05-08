@@ -54,4 +54,8 @@ struct AppContext {
 	int64_t           currentSeed        = 0;
 	std::string       worldSavePath;
 	WorldFile::Header currentWorldHeader;
+
+	// Structure editing session state (set when a .struct file is open for editing)
+	bool             isStructureSession = false;
+	glm::ivec3       structureOrigin    = {0, 0, 0};
 };

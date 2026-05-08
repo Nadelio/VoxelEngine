@@ -22,6 +22,7 @@
 #include "Keybinds.hpp"
 #include "Physics.hpp"
 #include "Shader.hpp"
+#include "StructureFile.hpp"
 #include "TerrainGen.hpp"
 #include "WorldFile.hpp"
 
@@ -40,11 +41,13 @@ void WorldSession::Enter(AppContext& ctx, const WorldFile::Header& header, const
 
 	ctx.grid->RebuildAll(*ctx.blockAtlas);
 
-	if (header.hasPlayerPos) {
+	if (header.hasPlayerPos && !ctx.isStructureSession) {
 		ctx.physics->teleportTo(*ctx.player, header.playerPos, ctx.camera);
 	} else {
 		float spawnYf;
-		if (header.worldType == WorldFile::WorldType::Superflat) {
+		if (ctx.isStructureSession) {
+			spawnYf = static_cast<float>(ctx.structureOrigin.y) + 2.0f;
+		} else if (header.worldType == WorldFile::WorldType::Superflat) {
 			int surfY = 0;
 			for (const auto& l : header.superflatLayers) surfY += l.thickness;
 			spawnYf = static_cast<float>(surfY) + 2.0f;
@@ -55,6 +58,9 @@ void WorldSession::Enter(AppContext& ctx, const WorldFile::Header& header, const
 		}
 		ctx.physics->teleportTo(*ctx.player, {0.5f, spawnYf, 0.5f}, ctx.camera);
 	}
+
+	isFlying       = false;
+	lastSpaceTapMs = 0;
 
 	if(!SDL_SetWindowRelativeMouseMode(ctx.window, true)) {
 		std::fprintf(stderr, "Warning: could not enable relative mouse mode: %s\n", SDL_GetError());
@@ -110,24 +116,47 @@ void WorldSession::ProcessEvent(const SDL_Event& event, AppContext& ctx) {
 		}
 
 		if(ChordPressed(sc, kbState, ctx.keybinds->debug_save)) {
-			ctx.currentWorldHeader.playerPos    = ctx.player->position;
-			ctx.currentWorldHeader.hasPlayerPos = true;
-			std::filesystem::create_directories(ctx.worldsDir);
-			if(WorldFile::Save(ctx.worldSavePath, ctx.currentWorldHeader, *ctx.grid)) {
-				std::fprintf(stderr, "World saved to: %s\n", ctx.worldSavePath.c_str());
+			if(ctx.isStructureSession) {
+				StructureFile::Header sh;
+				sh.origin = ctx.structureOrigin;
+				namespace fs = std::filesystem;
+				fs::create_directories(fs::path(ctx.worldSavePath).parent_path());
+				if(StructureFile::Save(ctx.worldSavePath, sh, *ctx.grid)) {
+					std::fprintf(stderr, "Structure saved to: %s\n", ctx.worldSavePath.c_str());
+				} else {
+					std::fprintf(stderr, "Warning: structure save failed for '%s'\n", ctx.worldSavePath.c_str());
+				}
 			} else {
-				std::fprintf(stderr, "Warning: world save failed for '%s'\n", ctx.worldSavePath.c_str());
+				ctx.currentWorldHeader.playerPos    = ctx.player->position;
+				ctx.currentWorldHeader.hasPlayerPos = true;
+				std::filesystem::create_directories(ctx.worldsDir);
+				if(WorldFile::Save(ctx.worldSavePath, ctx.currentWorldHeader, *ctx.grid)) {
+					std::fprintf(stderr, "World saved to: %s\n", ctx.worldSavePath.c_str());
+				} else {
+					std::fprintf(stderr, "Warning: world save failed for '%s'\n", ctx.worldSavePath.c_str());
+				}
 			}
 		}
 
 		if(ChordPressed(sc, kbState, ctx.keybinds->debug_load)) {
-			WorldFile::Header wfh;
-			if(WorldFile::Load(ctx.worldSavePath, wfh, *ctx.grid)) {
-				ctx.currentWorldHeader = wfh;
-				ctx.grid->RebuildVisibility();
-				std::fprintf(stderr, "World loaded from: %s (seed %lld)\n", ctx.worldSavePath.c_str(), (long long)wfh.seed);
+			if(ctx.isStructureSession) {
+				StructureFile::Header sh;
+				if(StructureFile::Load(ctx.worldSavePath, sh, *ctx.grid)) {
+					ctx.structureOrigin = sh.origin;
+					ctx.grid->RebuildVisibility();
+					std::fprintf(stderr, "Structure loaded from: %s\n", ctx.worldSavePath.c_str());
+				} else {
+					std::fprintf(stderr, "Warning: structure load failed for '%s'\n", ctx.worldSavePath.c_str());
+				}
 			} else {
-				std::fprintf(stderr, "Warning: world load failed for '%s'\n", ctx.worldSavePath.c_str());
+				WorldFile::Header wfh;
+				if(WorldFile::Load(ctx.worldSavePath, wfh, *ctx.grid)) {
+					ctx.currentWorldHeader = wfh;
+					ctx.grid->RebuildVisibility();
+					std::fprintf(stderr, "World loaded from: %s (seed %lld)\n", ctx.worldSavePath.c_str(), (long long)wfh.seed);
+				} else {
+					std::fprintf(stderr, "Warning: world load failed for '%s'\n", ctx.worldSavePath.c_str());
+				}
 			}
 		}
 
@@ -135,6 +164,23 @@ void WorldSession::ProcessEvent(const SDL_Event& event, AppContext& ctx) {
 			if(ChordPressed(sc, kbState, ctx.keybinds->hotbar[i])) {
 				ctx.hotbar->SelectSlot(i);
 				break;
+			}
+		}
+
+		// Crawl-toggle via sequence (e.g. <LC,LC>) is detected on KEY_DOWN.
+		if(ctx.keybinds->crawl_toggle.isSequence &&
+		   ChordPressed(sc, kbState, ctx.keybinds->crawl_toggle)) {
+			crawlToggleThisFrame = true;
+		}
+
+		if(ctx.isStructureSession && sc == SDL_SCANCODE_SPACE && !event.key.repeat) {
+			const uint64_t now = SDL_GetTicks();
+			if(now - lastSpaceTapMs < 300u) {
+				isFlying           = !isFlying;
+				ctx.player->velocity.y = 0.0f;
+				lastSpaceTapMs     = 0u;
+			} else {
+				lastSpaceTapMs = now;
 			}
 		}
 	}
@@ -160,7 +206,21 @@ void WorldSession::ProcessEvent(const SDL_Event& event, AppContext& ctx) {
 						const uint32_t selectedBlockID = ctx.hotbar->CurrentBlockID();
 						if(selectedBlockID != 0u || ctx.hotbar->SlotHasBlock(ctx.hotbar->SelectedSlot())) {
 							if(ctx.physics->CanPlaceBlockAt(*ctx.player, *ctx.camera, placePos)) {
-								ctx.grid->AddBlock(placePos.x, placePos.y, placePos.z, selectedBlockID);
+								uint8_t rotation = 0;
+								if(const BlockData* bd = ctx.blockRegistry->Get(selectedBlockID); bd && bd->canRotate.any()) {
+									// hit.faceIndex: 0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z
+									// rotation (upDir): 0=+Y(upright), 1=-Y(flip), 2=+X(tilt R), 3=-X(tilt L), 4=+Z(tilt fwd), 5=-Z(tilt back)
+									switch(hit.faceIndex) {
+										case 0: rotation = bd->canRotate.z ? 2u : 0u; break;
+										case 1: rotation = bd->canRotate.z ? 3u : 0u; break;
+										case 2: rotation = 0u; break;
+										case 3: rotation = (bd->canRotate.x || bd->canRotate.z) ? 1u : 0u; break;
+										case 4: rotation = bd->canRotate.x ? 4u : 0u; break;
+										case 5: rotation = bd->canRotate.x ? 5u : 0u; break;
+										default: break;
+									}
+								}
+								ctx.grid->AddBlock(placePos.x, placePos.y, placePos.z, selectedBlockID, rotation);
 							}
 						}
 					}
@@ -188,11 +248,16 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 	mouseDeltaX = 0.0f;
 	mouseDeltaY = 0.0f;
 
-	// Crawl-toggle edge detection
+	// Crawl-toggle edge detection (chord style); sequence style is handled in ProcessEvent.
 	const bool* const keys       = SDL_GetKeyboardState(nullptr);
-	const bool        crawlCombo = ChordHeld(keys, ctx.keybinds->crawl_toggle);
-	crawlToggleThisFrame         = crawlCombo && !prevCrawlComboDown;
-	prevCrawlComboDown           = crawlCombo;
+	if(!ctx.keybinds->crawl_toggle.isSequence) {
+		const bool crawlCombo = ChordHeld(keys, ctx.keybinds->crawl_toggle);
+		crawlToggleThisFrame  = crawlCombo && !prevCrawlComboDown;
+		prevCrawlComboDown    = crawlCombo;
+	} else {
+		prevCrawlComboDown = false;
+		// crawlToggleThisFrame may have been set in ProcessEvent; reset it after use below.
+	}
 
 	if(ctx.gameState == GameState::PLAYING) {
 		// Build flat movement direction from camera yaw (no pitch contribution)
@@ -209,17 +274,31 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 		if(glm::length2(moveDir) > 0.0000001f) moveDir = glm::normalize(moveDir);
 
 		const glm::vec3 desiredHV = moveDir * ctx.physicsConstants->moveSpeed;
-		const bool crouchHeld     = ChordHeld(keys, ctx.keybinds->crouch);
 
-		ctx.physics->StepEntityEuler(
-			*ctx.player,
-			static_cast<float>(dt),
-			desiredHV,
-			ChordHeld(keys, ctx.keybinds->jump),
-			crouchHeld,
-			crawlToggleThisFrame,
-			*ctx.physicsConstants
-		);
+		if(ctx.isStructureSession && isFlying) {
+			const bool flyUp   = ChordHeld(keys, ctx.keybinds->jump);
+			const bool flyDown = ChordHeld(keys, ctx.keybinds->crouch);
+			float vertVel = 0.0f;
+			if(flyUp && !flyDown)      vertVel =  ctx.physicsConstants->moveSpeed;
+			else if(flyDown && !flyUp) vertVel = -ctx.physicsConstants->moveSpeed;
+			ctx.physics->StepEntityFlying(
+				*ctx.player,
+				static_cast<float>(dt),
+				glm::vec3(desiredHV.x, vertVel, desiredHV.z)
+			);
+		} else {
+			const bool crouchHeld = ChordHeld(keys, ctx.keybinds->crouch);
+			ctx.physics->StepEntityEuler(
+				*ctx.player,
+				static_cast<float>(dt),
+				desiredHV,
+				ChordHeld(keys, ctx.keybinds->jump),
+				crouchHeld,
+				crawlToggleThisFrame,
+				*ctx.physicsConstants
+			);
+		}
+		crawlToggleThisFrame = false;
 		ctx.physics->StepBlockGravity(static_cast<float>(dt));
 		ctx.physics->UpdateFallingBlocks(static_cast<float>(dt));
 		ctx.physics->ForceEntityUpIfInsideBlock(*ctx.player);
@@ -303,6 +382,23 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 				}
 				ImGui::Text("Biome: %s", biomeStr.c_str());
 			}
+			{
+				TerrainGen::Params bp;
+				bp.seed = ctx.currentSeed;
+				if (ctx.currentWorldHeader.worldType == WorldFile::WorldType::SingleBiome)
+					bp.forceBiome = ctx.currentWorldHeader.singleBiome;
+				if (ctx.currentWorldHeader.superflatLayers.empty()) {
+					const float temperature = TerrainGen::SampleTemperature(
+						ctx.player->position.x, ctx.player->position.z, bp);
+					const int surfaceElevation = TerrainGen::SampleSurfaceY(
+						ctx.player->position.x, ctx.player->position.z, bp);
+					ImGui::Text("Temperature: %.3f", temperature);
+					ImGui::Text("Elevation: %d", surfaceElevation);
+				} else {
+					ImGui::TextDisabled("Temperature: N/A");
+					ImGui::TextDisabled("Elevation: N/A");
+				}
+			}
 			ImGui::Separator();
 			ImGui::Text("Position: %.2f  %.2f  %.2f",
 				ctx.player->position.x, ctx.player->position.y, ctx.player->position.z);
@@ -354,11 +450,22 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 			ctx.gameState = GameState::SETTINGS_MENU;
 		}
 		if(wantSaveQuit) {
-			ctx.currentWorldHeader.playerPos    = ctx.player->position;
-			ctx.currentWorldHeader.hasPlayerPos = true;
-			std::filesystem::create_directories(ctx.worldsDir);
-			if(!WorldFile::Save(ctx.worldSavePath, ctx.currentWorldHeader, *ctx.grid)) {
-				std::fprintf(stderr, "Warning: world save failed for '%s'\n", ctx.worldSavePath.c_str());
+			if(ctx.isStructureSession) {
+				StructureFile::Header sh;
+				sh.origin = ctx.structureOrigin;
+				namespace fs = std::filesystem;
+				fs::create_directories(fs::path(ctx.worldSavePath).parent_path());
+				if(!StructureFile::Save(ctx.worldSavePath, sh, *ctx.grid)) {
+					std::fprintf(stderr, "Warning: structure save failed for '%s'\n", ctx.worldSavePath.c_str());
+				}
+				ctx.isStructureSession = false;
+			} else {
+				ctx.currentWorldHeader.playerPos    = ctx.player->position;
+				ctx.currentWorldHeader.hasPlayerPos = true;
+				std::filesystem::create_directories(ctx.worldsDir);
+				if(!WorldFile::Save(ctx.worldSavePath, ctx.currentWorldHeader, *ctx.grid)) {
+					std::fprintf(stderr, "Warning: world save failed for '%s'\n", ctx.worldSavePath.c_str());
+				}
 			}
 			ctx.grid->Clear();
 			ctx.gameState  = GameState::MAIN_MENU;

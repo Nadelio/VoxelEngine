@@ -283,7 +283,7 @@ void Grid::MarkNeighborChunksDirty(glm::ivec3 /*worldPos*/, glm::ivec3 chunkCoor
     (void)dirs;  
 }
 
-bool Grid::AddBlock(int x, int y, int z, uint32_t blockID) {
+bool Grid::AddBlock(int x, int y, int z, uint32_t blockID, uint8_t rotation) {
     if (registry_ && !registry_->Get(blockID)) {
         return false;
     }
@@ -298,7 +298,7 @@ bool Grid::AddBlock(int x, int y, int z, uint32_t blockID) {
     if (it == chunks_.end()) {
         it = chunks_.emplace(cc, std::make_unique<Chunk>()).first;
     }
-    it->second->SetBlock(lp.x, lp.y, lp.z, blockID);
+    it->second->SetBlock(lp.x, lp.y, lp.z, blockID, rotation);
     it->second->MarkDirty();
     MarkNeighborChunksDirty(worldPos, cc, lp);
     if (registry_) {
@@ -309,7 +309,7 @@ bool Grid::AddBlock(int x, int y, int z, uint32_t blockID) {
     return true;
 }
 
-void Grid::AddBlockBulk(int x, int y, int z, uint32_t blockID) {
+void Grid::AddBlockBulk(int x, int y, int z, uint32_t blockID, uint8_t rotation) {
     const glm::ivec3 worldPos(x, y, z);
     const glm::ivec3 cc = ChunkCoord(worldPos);
     const glm::ivec3 lp = LocalPos(worldPos, cc);
@@ -318,7 +318,7 @@ void Grid::AddBlockBulk(int x, int y, int z, uint32_t blockID) {
     if (it == chunks_.end()) {
         it = chunks_.emplace(cc, std::make_unique<Chunk>()).first;
     }
-    it->second->SetBlock(lp.x, lp.y, lp.z, blockID);
+    it->second->SetBlock(lp.x, lp.y, lp.z, blockID, rotation);
     if (registry_) {
         const BlockData* bd = registry_->Get(blockID);
         if (bd && bd->affectedByGravity)
@@ -337,6 +337,17 @@ bool Grid::RemoveBlock(glm::ivec3 pos) {
     it->second->MarkDirty();
     MarkNeighborChunksDirty(pos, cc, lp);
     gravityBlocks_.erase(pos);
+
+    // Re-activate any gravity block that was resting on this one.
+    if (registry_) {
+        const glm::ivec3 above = pos + glm::ivec3(0, 1, 0);
+        const uint32_t aboveID = GetBlockID(above);
+        if (aboveID != 0) {
+            const BlockData* bd = registry_->Get(aboveID);
+            if (bd && bd->affectedByGravity)
+                gravityBlocks_.insert(above);
+        }
+    }
 
     if (it->second->IsEmpty()) {
         chunks_.erase(it);
@@ -392,6 +403,15 @@ int Grid::BlockCount() const {
 
 void Grid::VisitBlocks(const std::function<void(const glm::ivec3&, uint32_t)>& callback) const {
     ForEachBlock(callback);
+}
+
+uint8_t Grid::GetBlockRotation(glm::ivec3 pos) const {
+    const glm::ivec3 cc = ChunkCoord(pos);
+    const auto it = chunks_.find(cc);
+    if (it == chunks_.end()) return 0;
+    const glm::ivec3 lp = LocalPos(pos, cc);
+    if (!it->second->HasBlock(lp.x, lp.y, lp.z)) return 0;
+    return it->second->GetBlockRotation(lp.x, lp.y, lp.z);
 }
 
 void Grid::ReleaseSharedGLResources() {

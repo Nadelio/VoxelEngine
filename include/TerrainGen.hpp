@@ -31,12 +31,17 @@ public:
         float voronoiSmoothness = 0.633f; // Blender Voronoi Texture: Smoothness
 
         // Height mapping
-        int baseHeight      = 0;  // minimum surface Y
-        int heightAmplitude = 12; // maximum surface Y = baseHeight + heightAmplitude
+        int baseHeight      = 255; // minimum surface Y  (surface sits at ~y=255)
+        int heightAmplitude =  12; // maximum surface Y = baseHeight + heightAmplitude
+        int minY            =   0; // bottom of underground generation
 
         // World extent (centered at origin)
         int worldWidth = 64; // X: [-worldWidth/2, worldWidth/2)
         int worldDepth = 64; // Z: [-worldDepth/2, worldDepth/2)
+
+        // Path to the structures directory (e.g. "assets/data/structures").
+        // Leave empty to skip structure placement.
+        std::string structuresDir;
 
         // Custom Superflat layers (bottom to top). When non-empty, all noise-based
         // generation is skipped and blocks are placed directly from these layers.
@@ -59,18 +64,21 @@ public:
     // When superflatLayers is non-empty (Superflat worlds), returns an empty string.
     static std::string GetBiomeAt(float x, float z, const BiomeRegistry* biomes, const Params& p);
 
+    // Large-scale noise remapped to [-1, 1] used as the temperature map.
+    static float SampleTemperature(float x, float z, const Params& p);
+
 private:
     // sqrt(noise × voronoi) → [0, 1]
     static float SampleHeightFactor(float x, float z, const Params& p);
-
-    // Large-scale noise remapped to [-1, 1] used as the temperature map.
-    static float SampleTemperature(float x, float z, const Params& p);
 
     // voronoiColor → step(0.8) → multiply → smoothstep → [0, 1]  (legacy fallback)
     static float SampleBiomeFactor(float x, float z, const Params& p);
 
     // Single-octave value noise remapped to [0, 1].
     static float Noise2D(float x, float z, float scale, int seed);
+
+    // Three-octave value noise remapped to [0, 1] — used for blob/vein spatial tests.
+    static float Noise3D(float x, float y, float z, float scale, int seed);
 
     // Smooth F1 Voronoi — exponentially weighted blend of nearest-cell colors → [0, 1].
     static float Voronoi2D(float x, float z, float scale, float smoothness, int seed);
@@ -83,4 +91,7 @@ private:
                                 int x, int y, int z,
                                 int depth, const std::string& biome,
                                 uint32_t fallbackID, int seed);
+
+    // Place standalone structures loaded from `p.structuresDir` on top of the terrain.
+    static void PlaceStructures(Grid& grid, const BlockRegistry& registry, const BiomeRegistry* biomes, const Params& p);
 };

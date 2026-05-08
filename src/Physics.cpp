@@ -187,13 +187,24 @@ void Physics::StepEntityEuler(Entity& entity,
     }
 }
 
+void Physics::StepEntityFlying(Entity& entity, float deltaSeconds, const glm::vec3& desiredVelocity) {
+    entity.velocity = desiredVelocity;
+    entity.onGround = false;
+    MoveEntityAxis(entity, 0, entity.velocity.x * deltaSeconds);
+    MoveEntityAxis(entity, 2, entity.velocity.z * deltaSeconds);
+    MoveEntityAxis(entity, 1, entity.velocity.y * deltaSeconds);
+}
+
 void Physics::StepBlockGravity(float deltaSeconds) {
     blockGravityAccumulator_ += deltaSeconds;
+
+    std::vector<std::pair<glm::ivec3, uint32_t>> gravityBlocks;
+    gravityBlocks.reserve(grid_.GravityBlocks().size());
 
     while (blockGravityAccumulator_ >= kBlockStepSeconds) {
         blockGravityAccumulator_ -= kBlockStepSeconds;
 
-        std::vector<std::pair<glm::ivec3, uint32_t>> gravityBlocks;
+        gravityBlocks.clear();
         for (const glm::ivec3& pos : grid_.GravityBlocks()) {
             const uint32_t blockID = grid_.GetBlockID(pos);
             if (blockID != 0)
@@ -216,9 +227,15 @@ void Physics::StepBlockGravity(float deltaSeconds) {
 
             const glm::ivec3 below = pos + glm::ivec3(0, -1, 0);
             if (grid_.HasBlockAt(below)) {
+                grid_.RestGravityBlock(pos);
                 continue;
             }
-            
+
+            if (below.y < -16) {
+                grid_.RemoveBlock(pos);
+                continue;
+            }
+
             if (grid_.RemoveBlock(pos)) {
                 fallingBlocks_.push_back({below, glm::vec3(pos), blockID});
             }
@@ -233,8 +250,9 @@ void Physics::UpdateFallingBlocks(float deltaSeconds) {
         FallingBlock& fb = fallingBlocks_[i];
         fb.pos.y -= kFallSpeed * deltaSeconds;
 
-        if (fb.pos.y < -200.0f) {
-            fallingBlocks_.erase(fallingBlocks_.begin() + i);
+        if (fb.pos.y < -16.0f) {
+            fallingBlocks_[i] = std::move(fallingBlocks_.back());
+            fallingBlocks_.pop_back();
             continue;
         }
 
@@ -256,7 +274,8 @@ void Physics::UpdateFallingBlocks(float deltaSeconds) {
         if (!grid_.HasBlockAt(landPos)) {
             grid_.AddBlock(landPos.x, landPos.y, landPos.z, fb.blockID);
         }
-        fallingBlocks_.erase(fallingBlocks_.begin() + i);
+        fallingBlocks_[i] = std::move(fallingBlocks_.back());
+        fallingBlocks_.pop_back();
     }
 }
 

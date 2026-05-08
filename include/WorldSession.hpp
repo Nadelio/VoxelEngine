@@ -25,6 +25,10 @@ struct WorldSession {
 	bool prevCrawlComboDown   = false;
 	bool crawlToggleThisFrame = false;
 
+	// Flying state (structure sessions only)
+	bool     isFlying       = false;
+	uint64_t lastSpaceTapMs = 0;
+
 	// Accumulated mouse motion for the current frame (reset at frame start by caller)
 	float mouseDeltaX = 0.0f;
 	float mouseDeltaY = 0.0f;

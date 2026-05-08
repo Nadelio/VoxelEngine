@@ -31,16 +31,9 @@
 
 /*
 TODO:
-- Terrain Generation
+- Terrain Generation 
 	- Structure generation
-		- Trees
 		- Boulders
-		- Stone variant blobs
-			- Add "blob" block generation tag (generates in blobs)
-			- Add "vein" block generation tag (generates in longer strips)
-			- Add "mix" block generation tag (randomly pick between a list of mix-tagged blocks)
-				- This is the default/fallback tag
-			- Block generation tags prioritize individual blocks above block groups
 - Hand model
 	- Held block models
 	- Held item models
@@ -64,14 +57,17 @@ TODO:
 	- Water
 		- Fluids
 		- Swimmming
+		- Water generates based on elevation
 	- Wood
 		- Saplings
 			- Tree/crop growth
 		- Leaves
 			- Decay
+				- Add decay for grass blocks as well (grass block -> dirt block if block on top)
 	- Clay
 	- Ice
 		- Block-based friction values
+		- Surface water freezes based on temperature
 	- Glass
 		- Transparency
 - Survival mode
@@ -122,6 +118,8 @@ TODO:
 	- Add hotbar texture
 	- Add crafting texture
 	- Add furnace texture
+	- Add menu background texture (maybe just tile a block texture?)
+	- Change block hotbar render to mimic Minecraft
 	- Health, Hunger, Thirst UIs
 		- Two layers
 			- Empty hearts/hunger/thirst layer
@@ -130,7 +128,6 @@ TODO:
 	- Infinite worlds
 		- Loading/Unloading chunks based on distance from center of chunk
 	- Cave generation
-	- Move world surface from y = 0 to y = 255
 - Rendering
 	- Add fog to help cover up unloaded chunks
 	- Add skybox (that rotates between night/day)
