@@ -47,10 +47,16 @@ cmake --build build -j
 ## TODO:
 - Player model
 	- Skins
+		- Skin select in main menu
+			- drop down button on left side of menu with list of skins
+		- 3D skin preview in main menu above skin select drop down
 	- Capes
+	- drop down under skin select drop down and a toggle to the left of the cape drop down that enables/disables the cape
+	- If cape texture is equipped add to 3D skin preview
 	- Movement animations (first person and third person)
 		- Walking animation
 		- Sprinting animation
+			- Add sprinting to game
 		- Jumping animation
 		- Crouching animation
 		- Crawling animation
@@ -58,6 +64,7 @@ cmake --build build -j
 	- Water
 		- Fluids
 		- Swimmming
+			- Swimming animation
 		- Water generates based on elevation
 	- Wood
 		- Saplings
@@ -105,7 +112,10 @@ cmake --build build -j
 						- Clay
 						- Item inventories
 	- Hunger
+		- Sprinting increases hunger drain
 	- Thirst
+		- Sprinting increases thirst drain
+	- Using tools (hoe, shovel, axe, pickaxe) increases hunger and thirst drain
 	- Health
 		- Damage sources
 			- Starvation

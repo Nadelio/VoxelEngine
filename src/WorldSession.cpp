@@ -65,7 +65,7 @@ void WorldSession::Enter(AppContext& ctx, const WorldFile::Header& header, const
 				return std::string(base) + rel;
 			return rel;
 		};
-		const std::string skinPath = resolveAsset("assets/Nadeli0.png");
+		const std::string skinPath = resolveAsset("assets/textures/skins/Debug.png");
 		handModel_.LoadSkin(skinPath);
 	}
 
