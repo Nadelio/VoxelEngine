@@ -480,11 +480,12 @@ namespace {
     bool ChunkInFrustum(const std::array<Plane, 6>& planes, const glm::ivec3& coord) {
         const glm::vec3 minPt = glm::vec3(coord * Chunk::kSize);
         const glm::vec3 maxPt = minPt + glm::vec3(Chunk::kSize);
+        constexpr float kFrustumPadding = 2.0f;
         for (const auto& p : planes) {
             const float px = (p.nx >= 0.0f) ? maxPt.x : minPt.x;
             const float py = (p.ny >= 0.0f) ? maxPt.y : minPt.y;
             const float pz = (p.nz >= 0.0f) ? maxPt.z : minPt.z;
-            if (p.nx*px + p.ny*py + p.nz*pz + p.d < 0.0f)
+            if (p.nx*px + p.ny*py + p.nz*pz + p.d < -kFrustumPadding)
                 return false;
         }
         return true;

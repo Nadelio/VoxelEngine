@@ -74,7 +74,7 @@ TODO:
 	- Add shadows
 	- Add global lighting (based on time of day)
 	- Add colored point lighting
-	- Add block materials (like shine for ice blocks and transparency for water and glass)
+	- Add block materials (like gloss for ice blocks and transparency for water and glass)
 - Survival mode
 	- Crafting
 		- Crafting table
