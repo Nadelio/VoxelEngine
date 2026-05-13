@@ -1,17 +1,12 @@
 #version 330 core
 layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec2 aUV;
 layout(location = 2) in vec4 aJoints;
 layout(location = 3) in vec4 aWeights;
 
-uniform mat4 uMVP;
-uniform mat4 uModel;
-uniform mat4 uLightSpaceMatrix;
+uniform mat4 uLightMVP;
 uniform int uUseSkinning;
 uniform int uJointCount;
 uniform mat4 uJointMatrices[64];
-out vec2 vUV;
-out vec4 vShadowCoord;
 
 void main() {
     vec4 position = vec4(aPos, 1.0);
@@ -28,8 +23,5 @@ void main() {
         position = skin * position;
     }
 
-    vec4 worldPos = uModel * position;
-    gl_Position = uMVP * position;
-    vUV = aUV;
-    vShadowCoord = uLightSpaceMatrix * worldPos;
+    gl_Position = uLightMVP * position;
 }

@@ -164,7 +164,7 @@ namespace {
         return true;
     }
 
-    bool IntersectRayAabb(const glm::vec3& rayOrigin, const glm::vec3& rayDirection,
+    [[maybe_unused]] bool IntersectRayAabb(const glm::vec3& rayOrigin, const glm::vec3& rayDirection,
                         const glm::vec3& aabbMin, const glm::vec3& aabbMax,
                         float maxDistance, float& outDistance) {
         float tMin = 0.0f;
@@ -493,7 +493,8 @@ namespace {
 }
 
 void Grid::Draw(Shader& shader, const AtlasTexture& atlas,
-                const glm::mat4& projection, const glm::mat4& view) {
+                const glm::mat4& projection, const glm::mat4& view,
+                const glm::mat4& lightSpaceMatrix) {
     if (!registry_) return;
 
     shader.Use();
@@ -505,6 +506,8 @@ void Grid::Draw(Shader& shader, const AtlasTexture& atlas,
     const float tileH = static_cast<float>(MeshConstants::kTilePixelSize) /
                         static_cast<float>(atlas.Height() > 0 ? atlas.Height() : 1);
     shader.SetVec2("uTileSize", tileW, tileH);
+    shader.SetInt("uShadowMap", 1);
+    shader.SetMat4("uLightSpaceMatrix", glm::value_ptr(lightSpaceMatrix));
 
     const glm::mat4 pv     = projection * view;
     const auto      planes = ExtractFrustumPlanes(pv);
@@ -519,9 +522,32 @@ void Grid::Draw(Shader& shader, const AtlasTexture& atlas,
         if (!ChunkInFrustum(planes, coord)) continue;
 
         const glm::ivec3 origin = coord * Chunk::kSize;
-        const glm::mat4 mvp    = pv * glm::translate(glm::mat4(1.0f), glm::vec3(origin));
+        const glm::mat4 model  = glm::translate(glm::mat4(1.0f), glm::vec3(origin));
+        const glm::mat4 mvp    = pv * model;
         shader.SetMat4("uMVP", glm::value_ptr(mvp));
+        shader.SetMat4("uModel", glm::value_ptr(model));
         chunk->Draw();
+    }
+}
+
+void Grid::DrawShadowMap(Shader& shader, const AtlasTexture& atlas, const glm::mat4& lightSpaceMatrix) {
+    if (!registry_) return;
+
+    shader.Use();
+
+    for (auto& [coord, chunk] : chunks_) {
+        if (chunk->IsDirty()) {
+            const glm::ivec3 origin = coord * Chunk::kSize;
+            chunk->RebuildMesh(origin, atlas, *registry_,
+                [this](glm::ivec3 p) { return HasBlockAt(p); });
+        }
+        if (chunk->IndexCount() == 0) continue;
+
+        const glm::ivec3 origin = coord * Chunk::kSize;
+        const glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(origin));
+        const glm::mat4 lightMvp = lightSpaceMatrix * model;
+        shader.SetMat4("uLightMVP", glm::value_ptr(lightMvp));
+        chunk->DrawShadow();
     }
 }
 
@@ -669,7 +695,8 @@ void Grid::DrawLookedAtFace(Shader& shader, const Camera& camera,
 
 void Grid::DrawFloatBlocks(const std::vector<FloatBlock>& blocks,
                            Shader& shader, const AtlasTexture& atlas,
-                           const glm::mat4& projection, const glm::mat4& view) {
+                           const glm::mat4& projection, const glm::mat4& view,
+                           const glm::mat4& lightSpaceMatrix) {
     if (blocks.empty() || !registry_) return;
     if (!InitFallMesh()) return;
 
@@ -682,6 +709,8 @@ void Grid::DrawFloatBlocks(const std::vector<FloatBlock>& blocks,
     const float tileH = static_cast<float>(MeshConstants::kTilePixelSize) /
                         static_cast<float>(atlas.Height() > 0 ? atlas.Height() : 1);
     shader.SetVec2("uTileSize", tileW, tileH);
+    shader.SetInt("uShadowMap", 1);
+    shader.SetMat4("uLightSpaceMatrix", glm::value_ptr(lightSpaceMatrix));
 
     struct FaceLayout { int N, normalDir, U, V; bool flipU, flipV; };
     static constexpr FaceLayout kFaces[6] = {
@@ -738,6 +767,7 @@ void Grid::DrawFloatBlocks(const std::vector<FloatBlock>& blocks,
         const glm::mat4 model = glm::translate(glm::mat4(1.0f), fb.pos);
         const glm::mat4 mvp   = projection * view * model;
         shader.SetMat4("uMVP", glm::value_ptr(mvp));
+        shader.SetMat4("uModel", glm::value_ptr(model));
 
         glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
     }

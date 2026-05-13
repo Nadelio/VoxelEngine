@@ -4,6 +4,7 @@
 
 #include "AppContext.hpp"
 #include "HandModel.hpp"
+#include "PlayerModel.hpp"
 #include "Shader.hpp"
 #include "WorldFile.hpp"
 
@@ -51,6 +52,16 @@ struct WorldSession {
 	bool Frame(double dt, int displayedFps, int winW, int winH, AppContext& ctx);
 
 private:
+	bool EnsureShadowResources();
+	glm::mat4 BuildLightSpaceMatrix(const AppContext& ctx) const;
+	void RenderShadowPass(const AppContext& ctx, const glm::mat4& lightSpaceMatrix, int winW, int winH);
+
 	HandModel handModel_;
+	PlayerModel playerModel_;
 	Shader    skinShader_;
+	Shader    shadowShader_;
+	Shader    shadowSkinShader_;
+	GLuint    shadowFramebuffer_ = 0;
+	GLuint    shadowDepthTexture_ = 0;
+	int       shadowMapSize_ = 2048;
 };

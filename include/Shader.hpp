@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <unordered_map>
 
@@ -19,6 +20,7 @@ public:
     GLuint Program() const { return program_; }
 
     void SetMat4(const char* name, const float* matrix) const;
+    void SetMat4Array(const char* name, const float* matrices, std::size_t count) const;
     void SetInt(const char* name, int value) const;
     void SetVec4(const char* name, float x, float y, float z, float w) const;
         void SetVec2(const char* name, float x, float y) const;

@@ -175,6 +175,14 @@ void Shader::SetMat4(const char* name, const float* matrix) const {
     pglUniformMatrix4fv(it->second, 1, GL_FALSE, matrix);
 }
 
+void Shader::SetMat4Array(const char* name, const float* matrices, std::size_t count) const {
+    assert(pglGetUniformLocation && pglUniformMatrix4fv && program_ != 0);
+    auto it = locationCache_.find(name);
+    if (it == locationCache_.end())
+        it = locationCache_.emplace(name, pglGetUniformLocation(program_, name)).first;
+    pglUniformMatrix4fv(it->second, static_cast<GLsizei>(count), GL_FALSE, matrices);
+}
+
 void Shader::SetInt(const char* name, int value) const {
     assert(pglGetUniformLocation && pglUniform1i && program_ != 0);
     auto it = locationCache_.find(name);

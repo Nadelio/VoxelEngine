@@ -298,7 +298,14 @@ inline std::string ChordToDisplayString(const KeyChord& chord) {
 
 // Write all keybinds to a .data file. Returns false on I/O failure.
 inline bool SaveKeybinds(const std::string& path, const Keybinds& kb) {
+#ifdef _WIN32
+    FILE* f = nullptr;
+    if (fopen_s(&f, path.c_str(), "w") != 0) {
+        f = nullptr;
+    }
+#else
     FILE* f = std::fopen(path.c_str(), "w");
+#endif
     if (!f) return false;
 
     auto write = [&](const char* name, const KeyChord& chord) {

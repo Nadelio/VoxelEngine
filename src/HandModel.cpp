@@ -283,6 +283,14 @@ void HandModel::Draw(
         skinShader.Use();
         skinTexture_.Bind(GL_TEXTURE0);
         skinShader.SetInt("uSkin", 0);
+        skinShader.SetInt("uShadowMap", 1);
+        skinShader.SetInt("uUseSkinning", 0);
+        skinShader.SetInt("uJointCount", 0);
+        skinShader.SetInt("uReceiveShadows", 0);
+
+        const glm::mat4 identity(1.0f);
+        skinShader.SetMat4("uModel", glm::value_ptr(identity));
+        skinShader.SetMat4("uLightSpaceMatrix", glm::value_ptr(identity));
 
         glm::mat4 armModel = root;
         armModel = glm::translate(armModel, glm::vec3(0.26f, -0.22f, -0.30f));
@@ -306,6 +314,14 @@ void HandModel::Draw(
         skinShader.Use();
         blockAtlas.Bind(GL_TEXTURE0);
         skinShader.SetInt("uSkin", 0);
+        skinShader.SetInt("uShadowMap", 1);
+        skinShader.SetInt("uUseSkinning", 0);
+        skinShader.SetInt("uJointCount", 0);
+        skinShader.SetInt("uReceiveShadows", 0);
+
+        const glm::mat4 identity(1.0f);
+        skinShader.SetMat4("uModel", glm::value_ptr(identity));
+        skinShader.SetMat4("uLightSpaceMatrix", glm::value_ptr(identity));
 
         glm::mat4 heldModel = root;
         heldModel = glm::translate(heldModel, glm::vec3(0.18f, -0.06f, -0.36f));

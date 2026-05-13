@@ -96,7 +96,7 @@ private:
     bool CanFitPosture(const Entity& entity, float newHeight, float newEyeFromFeet) const;
 
     Grid& grid_;
-    const BlockRegistry& registry_;
+    [[maybe_unused]] const BlockRegistry& registry_;
 
     float blockGravityAccumulator_ = 0.0f;
     std::vector<FallingBlock> fallingBlocks_;

@@ -27,6 +27,92 @@
 #include "TerrainGen.hpp"
 #include "WorldFile.hpp"
 
+namespace {
+	PFNGLGENFRAMEBUFFERSPROC wglGenFramebuffers = nullptr;
+	PFNGLBINDFRAMEBUFFERPROC wglBindFramebuffer = nullptr;
+	PFNGLFRAMEBUFFERTEXTURE2DPROC wglFramebufferTexture2D = nullptr;
+	PFNGLCHECKFRAMEBUFFERSTATUSPROC wglCheckFramebufferStatus = nullptr;
+	PFNGLDELETEFRAMEBUFFERSPROC wglDeleteFramebuffers = nullptr;
+	PFNGLACTIVETEXTUREPROC wglActiveTexture = nullptr;
+	bool gShadowGlLoaded = false;
+
+	bool LoadShadowGlFunctions() {
+		if(gShadowGlLoaded) {
+			return true;
+		}
+		wglGenFramebuffers = reinterpret_cast<PFNGLGENFRAMEBUFFERSPROC>(SDL_GL_GetProcAddress("glGenFramebuffers"));
+		wglBindFramebuffer = reinterpret_cast<PFNGLBINDFRAMEBUFFERPROC>(SDL_GL_GetProcAddress("glBindFramebuffer"));
+		wglFramebufferTexture2D = reinterpret_cast<PFNGLFRAMEBUFFERTEXTURE2DPROC>(SDL_GL_GetProcAddress("glFramebufferTexture2D"));
+		wglCheckFramebufferStatus = reinterpret_cast<PFNGLCHECKFRAMEBUFFERSTATUSPROC>(SDL_GL_GetProcAddress("glCheckFramebufferStatus"));
+		wglDeleteFramebuffers = reinterpret_cast<PFNGLDELETEFRAMEBUFFERSPROC>(SDL_GL_GetProcAddress("glDeleteFramebuffers"));
+		wglActiveTexture = reinterpret_cast<PFNGLACTIVETEXTUREPROC>(SDL_GL_GetProcAddress("glActiveTexture"));
+		gShadowGlLoaded = wglGenFramebuffers && wglBindFramebuffer && wglFramebufferTexture2D && wglCheckFramebufferStatus && wglDeleteFramebuffers && wglActiveTexture;
+		return gShadowGlLoaded;
+	}
+}
+
+bool WorldSession::EnsureShadowResources() {
+	if(shadowFramebuffer_ != 0 && shadowDepthTexture_ != 0) {
+		return true;
+	}
+	if(!LoadShadowGlFunctions()) {
+		std::fprintf(stderr, "Warning: shadow framebuffer functions unavailable.\n");
+		return false;
+	}
+
+	glGenTextures(1, &shadowDepthTexture_);
+	glBindTexture(GL_TEXTURE_2D, shadowDepthTexture_);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, shadowMapSize_, shadowMapSize_, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	const float borderColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+
+	wglGenFramebuffers(1, &shadowFramebuffer_);
+	wglBindFramebuffer(GL_FRAMEBUFFER, shadowFramebuffer_);
+	wglFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowDepthTexture_, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	const bool ok = wglCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+	wglBindFramebuffer(GL_FRAMEBUFFER, 0);
+	if(!ok) {
+		std::fprintf(stderr, "Warning: shadow framebuffer is incomplete.\n");
+		return false;
+	}
+	return true;
+}
+
+glm::mat4 WorldSession::BuildLightSpaceMatrix(const AppContext& ctx) const {
+	const glm::vec3 focus = ctx.player->position + glm::vec3(0.0f, 4.0f, 0.0f);
+	const glm::vec3 lightDir = glm::normalize(glm::vec3(-0.45f, -1.0f, -0.30f));
+	const glm::vec3 lightPos = focus - lightDir * 52.0f;
+	const glm::mat4 lightView = glm::lookAt(lightPos, focus, glm::vec3(0.0f, 1.0f, 0.0f));
+	const glm::mat4 lightProj = glm::ortho(-40.0f, 40.0f, -40.0f, 40.0f, 1.0f, 120.0f);
+	return lightProj * lightView;
+}
+
+void WorldSession::RenderShadowPass(const AppContext& ctx, const glm::mat4& lightSpaceMatrix, int winW, int winH) {
+	if(!EnsureShadowResources() || shadowShader_.Program() == 0 || shadowSkinShader_.Program() == 0) {
+		return;
+	}
+
+	wglBindFramebuffer(GL_FRAMEBUFFER, shadowFramebuffer_);
+	glViewport(0, 0, shadowMapSize_, shadowMapSize_);
+	glClear(GL_DEPTH_BUFFER_BIT);
+	glCullFace(GL_FRONT);
+
+	ctx.grid->DrawShadowMap(shadowShader_, *ctx.blockAtlas, lightSpaceMatrix);
+	if(ctx.gameState == GameState::PLAYING && thirdPersonView) {
+		playerModel_.DrawShadow(shadowSkinShader_, lightSpaceMatrix, *ctx.player, ctx.camera->Forward());
+	}
+
+	glCullFace(GL_BACK);
+	wglBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glViewport(0, 0, winW, winH);
+}
+
 void WorldSession::Enter(AppContext& ctx, const WorldFile::Header& header, const std::string& savePath) {
 	ctx.currentSeed        = header.seed;
 	ctx.currentWorldHeader = header;
@@ -45,11 +131,15 @@ void WorldSession::Enter(AppContext& ctx, const WorldFile::Header& header, const
 	if (!handModel_.Initialize()) {
 		std::fprintf(stderr, "Warning: HandModel initialization failed.\n");
 	}
+	if (!playerModel_.Initialize()) {
+		std::fprintf(stderr, "Warning: PlayerModel initialization failed.\n");
+	}
 
 	if (skinShader_.Program() == 0) {
 		const auto resolveAsset = [](const std::string& rel) -> std::string {
-			if(const char* base = SDL_GetBasePath())
-				return std::string(base) + rel;
+			if(const char* base = SDL_GetBasePath()) {
+				return (std::filesystem::path(base) / rel).string();
+			}
 			return rel;
 		};
 		const std::string skinVert = resolveAsset("assets/shaders/skin.vert");
@@ -58,15 +148,32 @@ void WorldSession::Enter(AppContext& ctx, const WorldFile::Header& header, const
 			std::fprintf(stderr, "Warning: HandModel skin shader load failed.\n");
 		}
 	}
+	if (shadowShader_.Program() == 0) {
+		const auto resolveAsset = [](const std::string& rel) -> std::string {
+			if(const char* base = SDL_GetBasePath()) {
+				return (std::filesystem::path(base) / rel).string();
+			}
+			return rel;
+		};
+		shadowShader_.LoadFromFiles(resolveAsset("assets/shaders/shadow_depth.vert"), resolveAsset("assets/shaders/shadow_depth.frag"));
+		shadowSkinShader_.LoadFromFiles(resolveAsset("assets/shaders/shadow_skin.vert"), resolveAsset("assets/shaders/shadow_skin.frag"));
+	}
+	(void)EnsureShadowResources();
 
 	{
 		const auto resolveAsset = [](const std::string& rel) -> std::string {
-			if(const char* base = SDL_GetBasePath())
-				return std::string(base) + rel;
+			if(const char* base = SDL_GetBasePath()) {
+				return (std::filesystem::path(base) / rel).string();
+			}
 			return rel;
 		};
 		const std::string skinPath = resolveAsset("assets/textures/skins/Debug.png");
-		handModel_.LoadSkin(skinPath);
+		if(!handModel_.LoadSkin(skinPath)) {
+			std::fprintf(stderr, "Warning: HandModel skin load failed at '%s'.\n", skinPath.c_str());
+		}
+		if(!playerModel_.LoadSkin(skinPath)) {
+			std::fprintf(stderr, "Warning: PlayerModel skin load failed at '%s'.\n", skinPath.c_str());
+		}
 	}
 
 	if (header.hasPlayerPos && !ctx.isStructureSession) {
@@ -80,7 +187,8 @@ void WorldSession::Enter(AppContext& ctx, const WorldFile::Header& header, const
 			for (const auto& l : header.superflatLayers) surfY += l.thickness;
 			spawnYf = static_cast<float>(surfY) + 2.0f;
 		} else {
-			const TerrainGen::Params spawnParams{ header.seed };
+			TerrainGen::Params spawnParams{};
+			spawnParams.seed = header.seed;
 			spawnYf = static_cast<float>(
 				TerrainGen::SampleSurfaceY(0.5f, 0.5f, spawnParams)) + 2.0f;
 		}
@@ -359,6 +467,10 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 
 	handModel_.Update(static_cast<float>(dt));
 
+	const float horizontalSpeed = glm::length(glm::vec2(ctx.player->velocity.x, ctx.player->velocity.z));
+	const bool sprinting = horizontalSpeed > (ctx.physicsConstants->moveSpeed * 0.92f);
+	playerModel_.UpdateAnimation(*ctx.player, static_cast<float>(dt), sprinting);
+
 	if (ctx.hotbar->SlotHasBlock(ctx.hotbar->SelectedSlot()))
 		handModel_.SetBlock(ctx.hotbar->CurrentBlockID(), *ctx.blockRegistry, *ctx.blockAtlas);
 	else
@@ -375,14 +487,20 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 		view = glm::lookAt(camPos, lookAtPos, glm::vec3(0.0f, 1.0f, 0.0f));
 	}
 
+	const glm::mat4 lightSpaceMatrix = BuildLightSpaceMatrix(ctx);
+	RenderShadowPass(ctx, lightSpaceMatrix, winW, winH);
+	wglActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, shadowDepthTexture_);
+	wglActiveTexture(GL_TEXTURE0);
+
 	if(!(debugView && debugWireframeOnly)) {
-		ctx.grid->Draw(*ctx.defaultShader, *ctx.blockAtlas, proj, view);
+		ctx.grid->Draw(*ctx.defaultShader, *ctx.blockAtlas, proj, view, lightSpaceMatrix);
 
 		std::vector<Grid::FloatBlock> fallingVisual;
 		for(const Physics::FallingBlock& fb : ctx.physics->GetFallingBlocks()) {
 			fallingVisual.push_back({fb.pos, fb.blockID});
 		}
-		ctx.grid->DrawFloatBlocks(fallingVisual, *ctx.defaultShader, *ctx.blockAtlas, proj, view);
+		ctx.grid->DrawFloatBlocks(fallingVisual, *ctx.defaultShader, *ctx.blockAtlas, proj, view, lightSpaceMatrix);
 	}
 
 	glClear(GL_DEPTH_BUFFER_BIT);
@@ -390,6 +508,22 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 	// Draw first-person hand model
 	if (ctx.gameState == GameState::PLAYING && showGameplayUi && !thirdPersonView) {
 		handModel_.Draw(*ctx.defaultShader, skinShader_, *ctx.blockAtlas, winW, winH);
+	}
+
+	if(ctx.gameState == GameState::PLAYING && thirdPersonView) {
+		static bool loggedThirdPersonDrawCall = false;
+		if(!loggedThirdPersonDrawCall) {
+			std::fprintf(stderr, "WorldSession: third-person player draw path reached.\n");
+			loggedThirdPersonDrawCall = true;
+		}
+		playerModel_.Draw(
+			skinShader_,
+			proj,
+			view,
+			lightSpaceMatrix,
+			*ctx.player,
+			ctx.camera->Forward()
+		);
 	}
 
 	// ImGui overlay

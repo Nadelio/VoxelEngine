@@ -298,6 +298,10 @@ void Chunk::Draw() const {
     glDrawElements(GL_TRIANGLES, indexCount_, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
 }
 
+void Chunk::DrawShadow() const {
+    Draw();
+}
+
 void Chunk::DrawWireframe() const {
     Draw();
 }

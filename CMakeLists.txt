@@ -96,8 +96,11 @@ add_executable(VoxelEngine
     src/Grid.cpp
     src/HandModel.cpp
     src/Hotbar.cpp
+    src/JSON.cpp
+    src/AnimationHandler.cpp
     src/MenuSession.cpp
     src/Physics.cpp
+    src/PlayerModel.cpp
     src/Shader.cpp
     src/SkinTexture.cpp
     src/StructureFile.cpp
@@ -122,6 +125,16 @@ FetchContent_Declare(
     URL https://github.com/ocornut/imgui/archive/refs/tags/v1.92.7.zip
 )
 FetchContent_MakeAvailable(imgui_src)
+
+FetchContent_Declare(
+    tinygltf
+    GIT_REPOSITORY https://github.com/syoyo/tinygltf.git
+    GIT_TAG v2.9.0
+)
+FetchContent_GetProperties(tinygltf)
+if(NOT tinygltf_POPULATED)
+    FetchContent_Populate(tinygltf)
+endif()
 
 set(IMGUI_REQUIRED_SOURCES
     "${imgui_src_SOURCE_DIR}/imgui.cpp"
@@ -156,12 +169,20 @@ target_include_directories(VoxelEngine PRIVATE
     include
     ${GLM_ROOT}
     ${STB_ROOT}
+    ${tinygltf_SOURCE_DIR}
 )
 
 target_link_libraries(VoxelEngine PRIVATE ${SDL3_LINK_TARGET} OpenGL::GL)
 target_link_libraries(VoxelEngine PRIVATE imgui)
 if(WIN32)
     target_link_libraries(VoxelEngine PRIVATE ole32 shell32)
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(VoxelEngine PRIVATE
+        -Wno-language-extension-token
+        -Wno-deprecated-literal-operator
+    )
 endif()
 
 if(WIN32)
