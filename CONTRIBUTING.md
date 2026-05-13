@@ -5,15 +5,16 @@ Here are a few constraints and some extra information you will need to help out!
 
 ## Toolchain and Dependencies:
 - C++17
-- Clang
+- Clang 19.0.0 <=
 - CMake
 - Ninja
 - OpenGL 3.3 Support
 - GLAD (included in [include/](include/) and [src/](src/))
-- SDL3 Runtime and Dev Kit (this should be handled by [CMakeLists.txt](CMakeLists.txt))
+- SDL3 Runtime and Dev Kit (handled by [CMakeLists.txt](CMakeLists.txt))
 - GLM 1.0.3
-- Dear ImGUI 1.92.7
 - stb_image.h 2.30
+- Dear ImGUI 1.92.7 (handled by [CMakeLists.txt](CMakeLists.txt))
+- TinyGTLF v2.9.0 (handled by [CMakeLists.txt](CMakeLists.txt))
 
 ## Compiling:
 ```bash
@@ -54,12 +55,11 @@ cmake --build build -j
 	- drop down under skin select drop down and a toggle to the left of the cape drop down that enables/disables the cape
 	- If cape texture is equipped add to 3D skin preview
 	- Movement animations (first person and third person)
-		- Walking animation
 		- Sprinting animation
 			- Add sprinting to game
-		- Jumping animation
-		- Crouching animation
 		- Crawling animation
+		- Swinging animation (3rd person)
+		- Pick block animation (3rd person)
 - New blocks
 	- Water
 		- Fluids
