@@ -28,6 +28,10 @@ struct MenuSession {
 	std::vector<std::string> skinPaths;
 	std::vector<std::string> skinNames;
 	int                      selectedSkinIdx = -1;
+	std::vector<std::string> capePaths;
+	std::vector<std::string> capeNames;
+	int                      selectedCapeIdx = -1;
+	bool                     capeEnabled = true;
 
 	// Settings state
 	SettingsPage settingsPage        = SettingsPage::MAIN;
@@ -41,9 +45,11 @@ struct MenuSession {
 
 private:
 	void EnsureSkinList(AppContext& ctx);
+	void EnsureCapeList(AppContext& ctx);
 	bool EnsureSkinPreviewResources(AppContext& ctx);
 	void RenderSkinPreview(int winW, int winH, AppContext& ctx);
 	void ApplySelectedSkin(AppContext& ctx);
+	void ApplySelectedCape(AppContext& ctx);
 	void DestroySkinPreviewResources();
 
 	PlayerModel skinPreviewModel_;
@@ -53,7 +59,6 @@ private:
 	GLuint      skinPreviewDepthRbo_ = 0;
 	GLuint      skinPreviewShadowTex_ = 0;
 	int         skinPreviewSize_ = 384;
-	float       skinPreviewYaw_ = 0.0f;
 	bool        skinPreviewReady_ = false;
 	bool        skinListLoaded_ = false;
 	std::string loadedPreviewSkinPath_;

@@ -10,6 +10,7 @@
 #include <glm/gtc/quaternion.hpp>
 
 #include "AnimationHandler.hpp"
+#include "CapeModel.hpp"
 #include "Physics.hpp"
 #include "Shader.hpp"
 #include "SkinTexture.hpp"
@@ -24,6 +25,9 @@ public:
 
     bool Initialize();
     bool LoadSkin(const std::string& skinPath);
+    bool LoadCape(const std::string& capePath);
+    bool HasCape() const;
+    void SetCapeEnabled(bool enabled);
 
     void UpdateAnimation(const Physics::Entity& player, float dtSeconds, bool sprinting);
     void Draw(
@@ -101,6 +105,7 @@ private:
     std::vector<Skin> skins_;
 
     SkinTexture skinTexture_;
+    CapeModel capeModel_;
     AnimationHandler animationHandler_;
     const AnimationHandler::Clip* activeClip_ = nullptr;
     const AnimationHandler::Clip* previousClip_ = nullptr;
@@ -112,4 +117,8 @@ private:
 
     bool initialized_ = false;
     float renderScale_ = 0.09375f;
+    bool capeEnabled_ = false;
+    float capeFlap_ = 0.0f;
+    float capeLean_ = 0.0f;
+    float capeLean2_ = 0.0f;
 };

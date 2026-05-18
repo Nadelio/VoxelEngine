@@ -100,6 +100,7 @@ add_executable(VoxelEngine
     src/AnimationHandler.cpp
     src/MenuSession.cpp
     src/Physics.cpp
+    src/CapeModel.cpp
     src/PlayerModel.cpp
     src/Shader.cpp
     src/SkinTexture.cpp

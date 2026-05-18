@@ -35,9 +35,6 @@
 /*
 TODO:
 - Player model
-	- Capes
-	- drop down under skin select drop down and a toggle to the left of the cape drop down that enables/disables the cape
-	- If cape texture is equipped add to 3D skin preview
 	- Movement animations (first person and third person)
 		- Sprinting animation
 			- Add sprinting to game

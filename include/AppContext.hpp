@@ -56,6 +56,9 @@ struct AppContext {
 	std::string keybindsDataPath;
 	std::string selectedSkinPath;
 	std::string selectedSkinName;
+	std::string selectedCapePath;
+	std::string selectedCapeName;
+	bool        capeEnabled               = true;
 
 	// Mutable game-wide state
 	GameState         gameState          = GameState::MAIN_MENU;

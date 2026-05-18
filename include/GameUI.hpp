@@ -106,6 +106,9 @@ inline bool DrawMainMenu(
     int winH,
     const std::vector<std::string>& skinNames,
     int& selectedSkinIdx,
+    const std::vector<std::string>& capeNames,
+    int& selectedCapeIdx,
+    bool& capeEnabled,
     std::uint32_t skinPreviewTexture) {
     bool acted = false;
 
@@ -153,6 +156,42 @@ inline bool DrawMainMenu(
         const char* noneLabel = "(no skins found)";
         ImGui::Combo("##skin_select", &noneIdx, &noneLabel, 1);
         ImGui::EndDisabled();
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    ImGui::Text("Cape:");
+    ImGui::SetNextItemWidth(-1.0f);
+    if(!capeNames.empty()) {
+        std::vector<const char*> capePtrs;
+        capePtrs.reserve(capeNames.size());
+        for(const std::string& name : capeNames) {
+            capePtrs.push_back(name.c_str());
+        }
+        if(selectedCapeIdx < 0 || selectedCapeIdx >= static_cast<int>(capeNames.size())) {
+            selectedCapeIdx = -1;
+        }
+
+        ImGui::BeginGroup();
+        ImGui::AlignTextToFramePadding();
+        if(ImGui::Checkbox("##cape_enable", &capeEnabled)) {}
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::Combo("##cape_select", &selectedCapeIdx, capePtrs.data(), static_cast<int>(capePtrs.size()));
+        ImGui::EndGroup();
+    } else {
+        ImGui::BeginGroup();
+        ImGui::BeginDisabled(true);
+        ImGui::Checkbox("##cape_enable_disabled", &capeEnabled);
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(-1.0f);
+        int noneIdx = -1;
+        const char* noneLabel = "(no capes found)";
+        ImGui::Combo("##cape_select", &noneIdx, &noneLabel, 1);
+        ImGui::EndDisabled();
+        ImGui::EndGroup();
     }
 
     ImGui::End();

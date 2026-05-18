@@ -176,6 +176,16 @@ void WorldSession::Enter(AppContext& ctx, const WorldFile::Header& header, const
 		if(!playerModel_.LoadSkin(skinPath)) {
 			std::fprintf(stderr, "Warning: PlayerModel skin load failed at '%s'.\n", skinPath.c_str());
 		}
+
+		if(!ctx.selectedCapePath.empty() && ctx.capeEnabled) {
+			if(!playerModel_.LoadCape(ctx.selectedCapePath)) {
+				std::fprintf(stderr, "Warning: PlayerModel cape load failed at '%s'.\n", ctx.selectedCapePath.c_str());
+			} else {
+				playerModel_.SetCapeEnabled(true);
+			}
+		} else {
+			playerModel_.SetCapeEnabled(false);
+		}
 	}
 
 	if (header.hasPlayerPos && !ctx.isStructureSession) {

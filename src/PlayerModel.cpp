@@ -366,6 +366,24 @@ bool PlayerModel::LoadSkin(const std::string& skinPath) {
     return skinTexture_.LoadFromFile(skinPath);
 }
 
+bool PlayerModel::LoadCape(const std::string& capePath) {
+    if(!capeModel_.IsLoaded()) {
+        if(!capeModel_.Initialize()) {
+            SDL_Log("PlayerModel::LoadCape failed to initialize cape model.");
+            return false;
+        }
+    }
+    return capeModel_.LoadCape(capePath);
+}
+
+bool PlayerModel::HasCape() const {
+    return capeModel_.IsLoaded();
+}
+
+void PlayerModel::SetCapeEnabled(bool enabled) {
+    capeEnabled_ = enabled;
+}
+
 bool PlayerModel::LoadAnimations(const std::string& animationDirectory) {
     return animationHandler_.LoadClipsFromDirectory(animationDirectory);
 }
@@ -522,6 +540,12 @@ void PlayerModel::UpdateAnimation(const Physics::Entity& player, float dtSeconds
             blendElapsedSeconds_ = safeDuration;
         }
     }
+
+    const float speedXZ_cape = std::sqrt(player.velocity.x * player.velocity.x + player.velocity.z * player.velocity.z);
+    const float flapAmount = glm::clamp(speedXZ_cape * 0.55f, 0.0f, 1.0f);
+    capeFlap_ = std::sin(activeClipTime_ * 6.0f) * flapAmount * 1.8f;
+    capeLean_ = speedXZ_cape;
+    capeLean2_ = player.onGround ? 0.0f : glm::clamp(-player.velocity.y * 2.0f, -4.0f, 6.0f);
 }
 
 void PlayerModel::Draw(
@@ -633,6 +657,28 @@ void PlayerModel::Draw(
         pglBindVertexArray(0);
     }
 
+    if(capeEnabled_ && capeModel_.IsLoaded()) {
+        const glm::mat4 root = ComputeRootTransform(player, cameraForward);
+        glm::vec3 forward(cameraForward.x, 0.0f, cameraForward.z);
+        if(glm::length(forward) < 0.0001f) {
+            forward = glm::vec3(0.0f, 0.0f, 1.0f);
+        } else {
+            forward = glm::normalize(forward);
+        }
+        const glm::vec2 velXZ(player.velocity.x, player.velocity.z);
+        const float forwardVel = glm::dot(glm::vec2(forward.x, forward.z), velXZ);
+        const float capeMotionLean = glm::clamp(-forwardVel * 3.0f, -10.0f, 16.0f);
+        capeModel_.Draw(
+            skinShader,
+            projection,
+            view,
+            root,
+            capeFlap_,
+            capeMotionLean,
+            capeLean2_
+        );
+    }
+
     if(cullWasEnabled) {
         glEnable(GL_CULL_FACE);
     }
@@ -724,6 +770,26 @@ void PlayerModel::DrawShadow(
             glDrawElements(GL_TRIANGLES, primitive.indexCount, GL_UNSIGNED_INT, nullptr);
         }
         pglBindVertexArray(0);
+    }
+
+    if(capeEnabled_ && capeModel_.IsLoaded()) {
+        glm::vec3 forward(cameraForward.x, 0.0f, cameraForward.z);
+        if(glm::length(forward) < 0.0001f) {
+            forward = glm::vec3(0.0f, 0.0f, 1.0f);
+        } else {
+            forward = glm::normalize(forward);
+        }
+        const glm::vec2 velXZ(player.velocity.x, player.velocity.z);
+        const float forwardVel = glm::dot(glm::vec2(forward.x, forward.z), velXZ);
+        const float capeMotionLean = glm::clamp(-forwardVel * 3.0f, -10.0f, 16.0f);
+        capeModel_.DrawShadow(
+            shadowShader,
+            lightSpaceMatrix,
+            root,
+            capeFlap_,
+            capeMotionLean,
+            capeLean2_
+        );
     }
 }
 
