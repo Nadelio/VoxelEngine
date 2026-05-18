@@ -54,6 +54,8 @@ struct AppContext {
 	std::string blocksDataPath;
 	std::string physicsConstantsPath;
 	std::string keybindsDataPath;
+	std::string selectedSkinPath;
+	std::string selectedSkinName;
 
 	// Mutable game-wide state
 	GameState         gameState          = GameState::MAIN_MENU;

@@ -878,7 +878,7 @@ bool PlayerModel::LoadGltf(const std::string& modelPath) {
         Node& dst = nodes_[i];
 
         dst.name = src.name.empty() ? ("node_" + std::to_string(i)) : src.name;
-        nodeAnimationKeys_[i] = dst.name;
+        nodeAnimationKeys_[i] = dst.name + "#" + std::to_string(i);
         dst.mesh = src.mesh;
         dst.skin = src.skin;
 
@@ -1101,12 +1101,6 @@ bool PlayerModel::LoadGltf(const std::string& modelPath) {
         clip.name = srcAnim.name.empty() ? ("clip_" + std::to_string(animationIndex)) : srcAnim.name;
         clip.loop = true;
 
-        const bool suppressLegTranslation =
-            clip.name == "crouch" ||
-            clip.name == "crouch_walk" ||
-            clip.name == "crawl" ||
-            clip.name == "prone";
-
         for(const tinygltf::AnimationChannel& channel : srcAnim.channels) {
             if(channel.sampler < 0 || channel.sampler >= static_cast<int>(srcAnim.samplers.size())) {
                 continue;
@@ -1132,14 +1126,9 @@ bool PlayerModel::LoadGltf(const std::string& modelPath) {
                     ? nodeAnimationKeys_[static_cast<std::size_t>(channel.target_node)]
                     : nodes_[static_cast<std::size_t>(channel.target_node)].name;
 
-            const bool isLegNode = nodeKey == "Right Leg" || nodeKey == "Left Leg";
-
             AnimationHandler::BoneChannel& bone = clip.bones[nodeKey];
 
             if(channel.target_path == "translation") {
-                if(suppressLegTranslation && isLegNode) {
-                    continue;
-                }
                 std::vector<float> values;
                 if(!ReadAccessorFloats(accessors[static_cast<std::size_t>(sampler.output)], bufferViews, buffers, values, 3)) {
                     continue;
@@ -1156,8 +1145,7 @@ bool PlayerModel::LoadGltf(const std::string& modelPath) {
                         return false;
                     }
 
-                    const glm::vec3 firstKey(values[0], values[1], values[2]);
-                    return NearlyEqualVec3(firstKey, parentNode.translation);
+                    return true;
                 }();
                 const glm::vec3 rebaseOffset = rebaseFromParent
                     ? glm::vec3(0.0f, nodes_[static_cast<std::size_t>(targetNode.parent)].translation.y, 0.0f)

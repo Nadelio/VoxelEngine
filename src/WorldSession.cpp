@@ -167,7 +167,9 @@ void WorldSession::Enter(AppContext& ctx, const WorldFile::Header& header, const
 			}
 			return rel;
 		};
-		const std::string skinPath = resolveAsset("assets/textures/skins/Debug.png");
+		const std::string skinPath = !ctx.selectedSkinPath.empty()
+			? ctx.selectedSkinPath
+			: resolveAsset("assets/textures/skins/Debug.png");
 		if(!handModel_.LoadSkin(skinPath)) {
 			std::fprintf(stderr, "Warning: HandModel skin load failed at '%s'.\n", skinPath.c_str());
 		}

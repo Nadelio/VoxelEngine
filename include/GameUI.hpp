@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <string>
@@ -98,8 +99,64 @@ struct NewWorldParams {
 
 // Returns true when the user has chosen an action; sets `next` to the
 // destination state.  `wantQuit` is set true if the user pressed Quit.
-inline bool DrawMainMenu(GameState& next, bool& wantQuit, int winW, int winH) {
+inline bool DrawMainMenu(
+    GameState& next,
+    bool& wantQuit,
+    int winW,
+    int winH,
+    const std::vector<std::string>& skinNames,
+    int& selectedSkinIdx,
+    std::uint32_t skinPreviewTexture) {
     bool acted = false;
+
+    const float sideW = std::max(220.0f, winW * 0.20f);
+    ImGui::SetNextWindowSize(ImVec2(sideW, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(
+        ImVec2(std::max(20.0f, winW * 0.06f), winH * 0.5f), ImGuiCond_Always, ImVec2(0.0f, 0.5f));
+    ImGui::Begin("##skin_panel", nullptr,
+        ImGuiWindowFlags_NoDecoration |
+        ImGuiWindowFlags_NoSavedSettings |
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_AlwaysAutoResize);
+
+    ImGui::Text("Player Skin");
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    const float previewSize = std::max(120.0f, std::min(sideW - 20.0f, winH * 0.34f));
+    if(skinPreviewTexture != 0) {
+        ImGui::Image(
+			static_cast<ImTextureID>(static_cast<std::uintptr_t>(skinPreviewTexture)),
+            ImVec2(previewSize, previewSize),
+            ImVec2(0.0f, 1.0f),
+            ImVec2(1.0f, 0.0f));
+    } else {
+        ImGui::Dummy(ImVec2(previewSize, previewSize));
+    }
+
+    ImGui::Spacing();
+    ImGui::Text("Skin:");
+    ImGui::SetNextItemWidth(-1.0f);
+    if(!skinNames.empty()) {
+        std::vector<const char*> namePtrs;
+        namePtrs.reserve(skinNames.size());
+        for(const std::string& name : skinNames) {
+            namePtrs.push_back(name.c_str());
+        }
+        if(selectedSkinIdx < 0 || selectedSkinIdx >= static_cast<int>(skinNames.size())) {
+            selectedSkinIdx = 0;
+        }
+        ImGui::Combo("##skin_select", &selectedSkinIdx, namePtrs.data(), static_cast<int>(namePtrs.size()));
+    } else {
+        ImGui::BeginDisabled(true);
+        int noneIdx = 0;
+        const char* noneLabel = "(no skins found)";
+        ImGui::Combo("##skin_select", &noneIdx, &noneLabel, 1);
+        ImGui::EndDisabled();
+    }
+
+    ImGui::End();
+
     const float w = std::max(240.0f, winW * 0.22f);
     ImGui::SetNextWindowSize(ImVec2(w, 0), ImGuiCond_Always);
     ImGui::SetNextWindowPos(

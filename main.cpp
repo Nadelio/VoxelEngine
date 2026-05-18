@@ -35,17 +35,12 @@
 /*
 TODO:
 - Player model
-	- Skins
-		- Skin select in main menu
-			- drop down button on left side of menu with list of skins
-		- 3D skin preview in main menu above skin select drop down
 	- Capes
 	- drop down under skin select drop down and a toggle to the left of the cape drop down that enables/disables the cape
 	- If cape texture is equipped add to 3D skin preview
 	- Movement animations (first person and third person)
 		- Sprinting animation
 			- Add sprinting to game
-		- Crawling animation
 		- Swinging animation (3rd person)
 		- Pick block animation (3rd person)
 - New blocks
@@ -295,6 +290,7 @@ int main() {
 	const std::string wireframeFragShaderPath = ResolveAssetPath("assets/shaders/wireframe.frag"sv);
 	const std::string blockAtlasPNGPath       = ResolveAssetPath("assets/block_atlas.png"sv);
 	const std::string itemAtlasPNGPath        = ResolveAssetPath("assets/item_atlas.png"sv);
+	const std::string defaultSkinPath         = ResolveAssetPath("assets/textures/skins/Debug.png"sv);
 	const std::string physicsConstantsPath    = ResolveAssetPath("assets/data/physics_constants.data"sv);
 	const std::string blocksDataPath          = ResolveAssetPath("assets/data/blocks.data"sv);
 	const std::string keybindsDataPath        = ResolveAssetPath("assets/data/keybinds.data"sv);
@@ -417,6 +413,8 @@ int main() {
 	ctx.blocksDataPath = blocksDataPath;
 	ctx.physicsConstantsPath = physicsConstantsPath;
 	ctx.keybindsDataPath = keybindsDataPath;
+	ctx.selectedSkinPath = defaultSkinPath;
+	ctx.selectedSkinName = "Debug";
 	SDL_GetWindowSize(ctx.window, &ctx.windowedWidth, &ctx.windowedHeight);
 	ApplyWindowMode(ctx, WindowMode::WINDOWED_FULLSCREEN);
 
