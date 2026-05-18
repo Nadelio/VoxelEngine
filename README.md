@@ -30,7 +30,8 @@ Update: me (the dumbass) and contributors (<3)*
 - C++17
 - Clang Compiler v19.0.0 <=
 - OpenGL 3.3
-- SDL3 (both the runtime and the dev kit, handled by [CMakeLists.txt](CMakeLists.txt))
+- GLAD (included in repository)
+- SDL3 (both the runtime and the dev kit are handled by [CMakeLists.txt](CMakeLists.txt))
 - GLM 1.0.3
 - stb_image.h 2.30
 - Dear ImGUI 1.92.7 (handled by [CMakeLists.txt](CMakeLists.txt))
