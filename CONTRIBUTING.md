@@ -49,7 +49,7 @@ cmake --build build -j
 - Player model
 	- Finished Animations Tracker: [[FEATURE] Player Animations](https://github.com/Nadelio/VoxelEngine/issues/22)
 	- Refactor hand model to use player model first person animations
-	- Refactor animation loading to reference model information in .data files for animations, camera position, etc.
+	- Refactor animation loading to reference model information in `.data` files for animations, camera position, etc.
 - Gameplay
 	- Add sprinting to game
 - Rendering
