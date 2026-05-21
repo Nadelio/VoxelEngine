@@ -1,0 +1,43 @@
+# arrays can have minimum/maximum number of entries defined
+# [<type>: (<minimum>, <maximum>)] is the format for defining min/max number of entries
+# if no minimum, use 0
+# if no maximum, use -1
+# if neither min/max, exclude the `: (...)` or use `: (0, -1)`
+# if an entry is optional, define a default value using `= <value>` after the entry
+# you can allow one of a list of types using the `<type> | <other type>` syntax, which is read like "<type> or <other type>"
+# dictionaries/maps use the map<key, value> format
+# objects use the <name> : {...} format instead
+# keychords/keystrokes use the key type
+
+# schema files always have the `rules : {}` object and `schema_tag : ...`
+# to use a specific schema for a .data file, either add `$<schema_tag>` to the beginning of the file, or name the file following this format: `*.<schema_tag>.data`
+
+schema_tag : example
+rules : {
+    block : {
+        id: int
+        name: str
+        gravity: bool = false
+        front: [int: (2, 2)]
+        back: [int: (2, 2)]
+        left: [int: (2, 2)]
+        right: [int: (2, 2)]
+        top: [int: (2, 2)]
+        bottom: [int: (2, 2)]
+        temp: range<float> = -1.0..1.0
+        elevation: range<int> = 0..512
+        depth: range<int> = 0..512
+        biome: [tag] = all
+        group: [tag] = none
+        gen_tag: tag = mix
+    }
+
+    first_person : {
+        camera_anchor: [int: (3, 3)]
+        walk: str | [str: (1, 5)] 
+    }
+
+    third_person: map<tag, str | [str: (1, 5)]> # Ex: `third_person : { walk : "hello", sprint : ["sprint_lean_forward", "sprint_lean_left", "sprint_lean_right"] }`
+
+    keybind: map<tag, key> # Ex: `keybind : { quit : <LA+F4> }`
+}

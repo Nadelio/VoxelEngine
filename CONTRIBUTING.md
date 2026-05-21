@@ -47,30 +47,28 @@ cmake --build build -j
 
 ## TODO:
 - Player model
-	- Skins
-		- Skin select in main menu
-			- drop down button on left side of menu with list of skins
-		- 3D skin preview in main menu above skin select drop down
-	- Capes
-	- drop down under skin select drop down and a toggle to the left of the cape drop down that enables/disables the cape
-	- If cape texture is equipped add to 3D skin preview
-	- Movement animations (first person and third person)
-		- Sprinting animation
-			- Add sprinting to game
-		- Crawling animation
-		- Swinging animation (3rd person)
-		- Pick block animation (3rd person)
+	- Finished Animations Tracker: [[FEATURE] Player Animations](https://github.com/Nadelio/VoxelEngine/issues/22)
+	- Refactor hand model to use player model first person animations
+	- Refactor animation loading to reference model information in .data files for animations, camera position, etc.
+- Gameplay
+	- Add sprinting to game
+- Rendering
+	- 3rd person shadow doesn't follow player model, instead follows camera rotation
+	- 3rd person shadow renders on top of the player model, instead of under, potential issue with ordering or the shadow model's offset?
+	- Player model needs to rotate to face the direction of the player's camera when the player starts to move
 - New blocks
 	- Water
 		- Fluids
 		- Swimmming
 			- Swimming animation
 		- Water generates based on elevation
+			- Low elevation and medium temperature
 	- Wood
 		- Saplings
 			- Tree/crop growth
 		- Leaves
 			- Decay
+				- Leaf blocks decay into nothing if there isn't an oak log within 2 blocks of the leaf block.
 				- Add decay for grass blocks as well (grass block -> dirt block if block on top)
 	- Clay
 	- Ice
@@ -78,6 +76,13 @@ cmake --build build -j
 		- Surface water freezes based on temperature
 	- Glass
 		- Transparency
+	- Torches
+		- Block models
+		- Block-based emission
+			- Material textures
+				- Emission
+				- Gloss
+				- Alpha/Transparency
 - Rendering
 	- Add fog to help cover up unloaded chunks
 	- Add skybox (that rotates between night/day)
@@ -85,7 +90,7 @@ cmake --build build -j
 	- Add shadows
 	- Add global lighting (based on time of day)
 	- Add colored point lighting
-	- Add block materials (like shine for ice blocks and transparency for water and glass)
+	- Add block materials (like gloss for ice blocks and transparency for water and glass)
 - Survival mode
 	- Crafting
 		- Crafting table
@@ -111,6 +116,13 @@ cmake --build build -j
 					- Water container
 						- Clay
 						- Item inventories
+		- Charcoal
+			- Wood in a furnace -> Charcoal
+			- Wood can be used as a fuel as well
+		- Torches
+			- Emit light when held in hand
+			- Stick + Charcoal
+			- Stick + Wheat
 	- Hunger
 		- Sprinting increases hunger drain
 	- Thirst
@@ -150,9 +162,13 @@ cmake --build build -j
 	- Cave generation
 	- Structures
 		- Boulders (need to build these manually)
-- Arm model
+- Arm/Hand model
 	- Interaction animations (these need to be tweaked manually)
 		- Breaking block (swing hand)
 		- Placing block (swing hand)
 		- Picking block (point)
 		- Arm model root position
+- Rendering
+	- Animated texture support for models and blocks
+	- Animated skin textures?
+	- Skin materials (like blocks)

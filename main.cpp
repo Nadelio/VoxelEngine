@@ -35,9 +35,7 @@
 /*
 TODO:
 - Player model
-	- Finished Animation Tracker: https://github.com/Nadelio/VoxelEngine/issues/22
-	- Movement animations (first person and third person)
-		- Sprinting animation
+	- Finished Animations Tracker: https://github.com/Nadelio/VoxelEngine/issues/22
 	- Refactor hand model to use player model first person animations
 	- Refactor animation loading to reference model information in .data files for animations, camera position, etc.
 - Gameplay

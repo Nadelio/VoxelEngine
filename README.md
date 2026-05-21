@@ -8,14 +8,12 @@ Wanted to make Minecraft, wanted to write C, wanted to use OpenGL, decided C++ w
 This is very spaghetti\
 Likely not the most efficient either\
 DEFINITELY not unique\
-Totally didn't copy the greedy meshing code from some random research paper I found\
-Eventually I will replace the UI draw calls with texture draw calls\
-Not today tho
+Totally didn't copy the greedy meshing code from some random research paper I found
 
 ![In-Game Screenshot](assets_repo/in_game_screenshot.png)
-![House Screenshot](assets_repo/house_screenshot.png)
 ![Plains Biome Screenshot](assets_repo/plains_biome_screenshot.png)
 ![Arm Model Preview Screenshot](assets_repo/arm_model_preview_screenshot.png)
+![Pixelated Shadows Screenshot](assets_repo/pixelated_shadows_screenshot.png)
 
 ## AI Usage Disclaimer
 I did use Copilot for the `CMakeLists.txt` and `main.yml` files (mainly because IDK the first thing about either).\
