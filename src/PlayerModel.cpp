@@ -15,8 +15,10 @@
 
 #include <SDL3/SDL.h>
 
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/common.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -463,6 +465,12 @@ void PlayerModel::BuildAnimatedNodeTransforms(
             s = glm::mix(prevS, curS, blendAlpha);
         }
 
+        if (node.name == "Head") {
+            glm::quat yawRot = glm::angleAxis(this->headYawOffset_, glm::vec3(0.0f, 1.0f, 0.0f));
+            glm::quat pitchRot = glm::angleAxis(this->headPitch_, glm::vec3(1.0f, 0.0f, 0.0f));
+            r = yawRot * pitchRot;
+        }
+
         localTransforms[i] = ComposeTRS(t, r, s);
     }
 
@@ -483,6 +491,21 @@ void PlayerModel::BuildAnimatedNodeTransforms(
 
     for(std::size_t i = 0; i < nodes_.size(); ++i) {
         (void)computeGlobal(i);
+    }
+
+    for (std::size_t i = 0; i < nodes_.size(); ++i) {
+        if (nodes_[i].name == "Head") {
+            glm::mat4& m = globalTransforms[i];
+            glm::vec3 translation, skew, scale;
+            glm::vec4 perspective;
+            glm::quat unusedRot;
+            glm::quat newRot;
+            glm::decompose(m, scale, unusedRot, translation, skew, perspective);
+            glm::quat yawRot = glm::angleAxis(this->headYawOffset_, glm::vec3(0.0f, 1.0f, 0.0f));
+            glm::quat pitchRot = glm::angleAxis(this->headPitch_, glm::vec3(1.0f, 0.0f, 0.0f));
+            newRot = yawRot * pitchRot;
+            m = glm::translate(glm::mat4(1.0f), translation) * glm::mat4_cast(newRot) * glm::scale(glm::mat4(1.0f), scale);
+        }
     }
 }
 
@@ -577,9 +600,45 @@ void PlayerModel::Draw(
         return;
     }
 
-    const glm::mat4 root = ComputeRootTransform(player, cameraForward);
-    const glm::vec3 feetPos = player.position - glm::vec3(0.0f, player.eyeFromFeet, 0.0f);
-    const float yawRadians = std::atan2(cameraForward.x, cameraForward.z) + glm::pi<float>();
+    float cameraYaw = std::atan2(cameraForward.x, cameraForward.z) + glm::pi<float>();
+    while (cameraYaw > glm::pi<float>()) cameraYaw -= glm::two_pi<float>();
+    while (cameraYaw < -glm::pi<float>()) cameraYaw += glm::two_pi<float>();
+
+    if (bodyYaw_ == 0.0f && lastCameraYaw_ == 0.0f) {
+        bodyYaw_ = cameraYaw;
+        lastCameraYaw_ = cameraYaw;
+    }
+
+    float yawOffset = cameraYaw - bodyYaw_;
+    while (yawOffset > glm::pi<float>()) yawOffset -= glm::two_pi<float>();
+    while (yawOffset < -glm::pi<float>()) yawOffset += glm::two_pi<float>();
+
+    constexpr float maxHeadYaw = glm::radians(55.0f);
+    if (yawOffset > maxHeadYaw) {
+        bodyYaw_ += yawOffset - maxHeadYaw;
+        yawOffset = maxHeadYaw;
+    } else if (yawOffset < -maxHeadYaw) {
+        bodyYaw_ += yawOffset + maxHeadYaw;
+        yawOffset = -maxHeadYaw;
+    }
+
+    while (bodyYaw_ > glm::pi<float>()) bodyYaw_ -= glm::two_pi<float>();
+    while (bodyYaw_ < -glm::pi<float>()) bodyYaw_ += glm::two_pi<float>();
+
+    lastCameraYaw_ = cameraYaw;
+
+    glm::vec3 horizontalForward(std::sin(bodyYaw_), 0.0f, std::cos(bodyYaw_));
+    glm::vec3 feetPos = player.position - glm::vec3(0.0f, player.eyeFromFeet, 0.0f);
+    glm::mat4 root(1.0f);
+    root = glm::translate(root, feetPos + glm::vec3(0.0f, -0.03f, 0.0f));
+    root = glm::rotate(root, bodyYaw_, glm::vec3(0.0f, 1.0f, 0.0f));
+    root = glm::scale(root, glm::vec3(renderScale_));
+
+    float headYawOffset = yawOffset;
+    float headPitch = 0.0f;
+    headPitch = std::asin(glm::clamp(cameraForward.y, -1.0f, 1.0f));
+    this->headYawOffset_ = headYawOffset;
+    this->headPitch_ = headPitch;
 
     const bool cullWasEnabled = glIsEnabled(GL_CULL_FACE) == GL_TRUE;
     glDisable(GL_CULL_FACE);
@@ -704,7 +763,7 @@ void PlayerModel::Draw(
             feetPos.x,
             feetPos.y,
             feetPos.z,
-            yawRadians,
+            bodyYaw_,
             renderScale_
         );
         loggedDrawStats = true;

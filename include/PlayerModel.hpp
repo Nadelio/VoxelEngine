@@ -121,4 +121,9 @@ private:
     float capeFlap_ = 0.0f;
     float capeLean_ = 0.0f;
     float capeLean2_ = 0.0f;
+
+    mutable float bodyYaw_ = 0.0f;
+    mutable float lastCameraYaw_ = 0.0f;
+    mutable float headYawOffset_ = 0.0f;
+    mutable float headPitch_ = 0.0f;
 };

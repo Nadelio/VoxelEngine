@@ -131,8 +131,10 @@ void WorldSession::RenderShadowPass(const AppContext& ctx, const glm::mat4& ligh
 		}
 		ctx.grid->DrawFloatBlocksShadow(fallingVisual, shadowShader_, lightSpaceMatrix);
 	}
-	if(ctx.gameState == GameState::PLAYING && thirdPersonView) {
-		playerModel_.DrawShadow(shadowSkinShader_, lightSpaceMatrix, *ctx.player, ctx.camera->Forward());
+	if(ctx.gameState == GameState::PLAYING) {
+		Physics::Entity shadowPlayer = *ctx.player;
+		shadowPlayer.position.y += 0.08f;
+		playerModel_.DrawShadow(shadowSkinShader_, lightSpaceMatrix, shadowPlayer, ctx.camera->Forward());
 	}
 
 	glDisable(GL_POLYGON_OFFSET_FILL);
@@ -521,10 +523,27 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 	const glm::mat4 proj     = glm::perspective(glm::radians(60.0f), aspect, 0.1f, 200.0f);
 	glm::mat4 view = ctx.camera->View();
 	if(thirdPersonView) {
-		const glm::vec3 lookAtPos = ctx.player->position + glm::vec3(0.0f, ctx.player->eyeFromFeet * 0.9f, 0.0f);
-		const glm::vec3 offset    = (-ctx.camera->Forward() * 4.0f) + glm::vec3(0.0f, 1.2f, 0.0f);
-		const glm::vec3 camPos    = lookAtPos + offset;
-		view = glm::lookAt(camPos, lookAtPos, glm::vec3(0.0f, 1.0f, 0.0f));
+		const glm::vec3 lookAtPos = ctx.player->position + glm::vec3(0.0f, ctx.player->eyeFromFeet - 1.0f, 0.0f);
+		const float desiredDist = 4.0f;
+		const glm::vec3 camDir = -ctx.camera->Forward();
+		const glm::vec3 camUp = glm::vec3(0.0f, 1.0f, 0.0f);
+		glm::vec3 desiredCamPos = lookAtPos + camDir * desiredDist + glm::vec3(0.0f, 0.7f, 0.0f);
+
+		glm::vec3 rayStart = lookAtPos;
+		glm::vec3 rayEnd = desiredCamPos;
+		glm::vec3 rayDir = glm::normalize(rayEnd - rayStart);
+		float rayLen = glm::length(rayEnd - rayStart);
+		float closestHit = rayLen;
+		for(float t = 0.2f; t < rayLen; t += 0.2f) {
+			glm::vec3 probe = rayStart + rayDir * t;
+			glm::ivec3 probeBlock = glm::floor(probe);
+			if(ctx.grid->HasBlockAt(probeBlock)) {
+				closestHit = t - 0.1f;
+				break;
+			}
+		}
+		glm::vec3 camPos = rayStart + rayDir * closestHit;
+		view = glm::lookAt(camPos, lookAtPos, camUp);
 	}
 
 	const glm::mat4 lightSpaceMatrix = BuildLightSpaceMatrix(ctx);
@@ -554,13 +573,14 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 		ctx.grid->DrawFloatBlocks(fallingVisual, *ctx.defaultShader, *ctx.blockAtlas, proj, view, lightSpaceMatrix);
 	}
 
-	glClear(GL_DEPTH_BUFFER_BIT);
-
+	
 	// Draw first-person hand model
 	if (ctx.gameState == GameState::PLAYING && showGameplayUi && !thirdPersonView) {
+		glClear(GL_DEPTH_BUFFER_BIT);
 		handModel_.Draw(*ctx.defaultShader, skinShader_, *ctx.blockAtlas, winW, winH);
 	}
 
+	// Draw third-person player model
 	if(ctx.gameState == GameState::PLAYING && thirdPersonView) {
 		static bool loggedThirdPersonDrawCall = false;
 		if(!loggedThirdPersonDrawCall) {
@@ -576,6 +596,8 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 			ctx.camera->Forward()
 		);
 	}
+
+	glClear(GL_DEPTH_BUFFER_BIT);
 
 	// ImGui overlay
 	ctx.debugOverlay->NewFrame();

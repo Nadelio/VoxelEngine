@@ -41,23 +41,20 @@ TODO:
 		- Swinging animation (3rd person)
 		- Pick block animation (3rd person)
 - Rendering
-	- Player model shadow in 1st person
 	- Fix cape anchor to properly anchor to player model shoulders and not a position in space relative to the player's position
-	- Fix 3rd person player model rendering so it doesn't render on top of blocks closer to the camera
-	- Lower 3rd person camera
-		- Prevent clipping by pushing camera closer to player model if block is between player model and camera
-	- Move 3rd person model head before turning entire body (turn body after head has hit +/- 55 degrees from body's facing angle)
 - New blocks
 	- Water
 		- Fluids
 		- Swimmming
 			- Swimming animation
 		- Water generates based on elevation
+			- Low elevation and medium temperature
 	- Wood
 		- Saplings
 			- Tree/crop growth
 		- Leaves
 			- Decay
+				- Leaf blocks decay into nothing if there isn't an oak log within 2 blocks of the leaf block.
 				- Add decay for grass blocks as well (grass block -> dirt block if block on top)
 	- Clay
 	- Ice
