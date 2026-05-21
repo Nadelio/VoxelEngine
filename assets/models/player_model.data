@@ -4,6 +4,9 @@
 # define the root bone
 root_bone : "Waist"
 
+# the bone used for turning the head to match the camera view direction
+head_root_bone : "Head"
+
 # third person animations
 third_person : {
     # define where the camera is positioned
@@ -23,9 +26,10 @@ third_person : {
     pick : "third_person_pick_item"
 }
 
-# third person transitions
+# third person transitions (overrides the default interpolation between specific states)
 third_person_transitions : {
-    # nothing rn
+    # format: <initial state> : { <final state> : <transition animation name> }
+    # by default no animations have transition animations
 }
 
 # first person animations
@@ -37,9 +41,7 @@ first_person : {
 }
 
 # first person transitions
-first_person_transitions : {
-    # nothing rn
-}
+first_person_transitions : {  }
 
 # a value in the animation map can be either a single string or an array of strings (min len 1, max len 5)
 # first element of the string array is the default/fallback animation
