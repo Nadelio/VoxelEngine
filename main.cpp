@@ -37,7 +37,7 @@ TODO:
 - Player model
 	- Finished Animations Tracker: https://github.com/Nadelio/VoxelEngine/issues/22
 	- Refactor hand model to use player model first person animations
-	- Refactor animation loading to reference model information in .data files for animations, camera position, etc.
+	- Refactor animation loading to reference model information in `.data` files for animations, camera position, etc.
 - Gameplay
 	- Add sprinting to game
 - Rendering
@@ -79,6 +79,7 @@ TODO:
 	- Add global lighting (based on time of day)
 	- Add colored point lighting
 	- Add block materials (like gloss for ice blocks and transparency for water and glass)
+	- Replicate the 3D skin layers mod (See: https://www.curseforge.com/minecraft/mc-mods/skin-layers-3d for reference)
 - Survival mode
 	- Crafting
 		- Crafting table
@@ -150,16 +151,48 @@ TODO:
 	- Cave generation
 	- Structures
 		- Boulders (need to build these manually)
-- Arm/Hand model
-	- Interaction animations (these need to be tweaked manually)
-		- Breaking block (swing hand)
-		- Placing block (swing hand)
-		- Picking block (point)
-		- Arm model root position
 - Rendering
 	- Animated texture support for models and blocks
-	- Animated skin textures?
+		- Define in `./assets/data/models/<model_name>.data`
+		- Define in `./assets/data/blocks/<block_name>.data`
+		- Animated blocks use multiple textures, stored in a folder with the block name
+			- `./assets/textures/blocks/<block_name>/`
+			- Each frame of the animated texture needs to be numbered, starting at 0
+				- Ex: `0.png`, `1.png`, etc.
+		- Animated models use multiple textures, stored in a folder with the model name
+			- `./assets/textures/models/<model_name>/`
+			- Each frame of the animated texture needs to be numbered, starting at 0
+				- Ex: `0.png`, `1.png`, etc.
+	- Animated skin textures
+		- Define in `./assets/data/skins/<skin_name>.data`
+		- Animated skins use multiple textures, stored in a folder with the skin name
+			- `./assets/textures/skins/<skin_name>/`
+			- Each frame of the animated texture needs to be numbered, starting at 0
+				- Ex: `0.png`, `1.png`, etc.
+	- Animated cape textures
+		- Define in `./assets/data/capes/<cape_name>.data`
+		- Animated capes use multiple textures, stored in a folder with the cape name
+			- `./assets/textures/capes/<cape_name>/`
+			- Each frame of the animated texture needs to be numbered, starting at 0
+				- Ex: `0.png`, `1.png`, etc.
+	- Item/Block Specific holding/placing/breaking animations?
+		- Ex: Torch being held above head
+		- Define in `./assets/data/items/<item_name>.data`
 	- Skin materials (like blocks)
+		- Define in `./assets/data/blocks/<block_name>.data`
+- Particle System?
+	- Torches create small spark particles
+	- Water creates splash particles
+	- Player creates small footsteps on dirt and grass
+- Weather System?
+	- Rain or snow particles depending on biome
+	- Lightning?
+- Sounds
+	- Footsteps
+		- Blocks will change footstep sound
+	- Ambience
+		- Music?
+		- Biome-based nature sounds
 */
 
 using namespace std::literals::string_view_literals;
