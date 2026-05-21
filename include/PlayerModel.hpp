@@ -104,6 +104,8 @@ private:
     std::vector<Mesh> meshes_;
     std::vector<Skin> skins_;
 
+    int capeAnchorNode_ = -1;
+
     SkinTexture skinTexture_;
     CapeModel capeModel_;
     AnimationHandler animationHandler_;

@@ -724,24 +724,15 @@ void PlayerModel::Draw(
         pglBindVertexArray(0);
     }
 
-    if(capeEnabled_ && capeModel_.IsLoaded()) {
-        const glm::mat4 root = ComputeRootTransform(player, cameraForward);
-        glm::vec3 forward(cameraForward.x, 0.0f, cameraForward.z);
-        if(glm::length(forward) < 0.0001f) {
-            forward = glm::vec3(0.0f, 0.0f, 1.0f);
-        } else {
-            forward = glm::normalize(forward);
-        }
-        const glm::vec2 velXZ(player.velocity.x, player.velocity.z);
-        const float forwardVel = glm::dot(glm::vec2(forward.x, forward.z), velXZ);
-        const float capeMotionLean = glm::clamp(-forwardVel * 3.0f, -10.0f, 16.0f);
+    if(capeEnabled_ && capeModel_.IsLoaded() && capeAnchorNode_ >= 0 && static_cast<size_t>(capeAnchorNode_) < globalTransforms.size()) {
+        const glm::mat4 capeAnchorTransform = root * globalTransforms[capeAnchorNode_];
         capeModel_.Draw(
             skinShader,
             projection,
             view,
-            root,
+            capeAnchorTransform,
             capeFlap_,
-            capeMotionLean,
+            capeLean_,
             capeLean2_
         );
     }
@@ -839,22 +830,14 @@ void PlayerModel::DrawShadow(
         pglBindVertexArray(0);
     }
 
-    if(capeEnabled_ && capeModel_.IsLoaded()) {
-        glm::vec3 forward(cameraForward.x, 0.0f, cameraForward.z);
-        if(glm::length(forward) < 0.0001f) {
-            forward = glm::vec3(0.0f, 0.0f, 1.0f);
-        } else {
-            forward = glm::normalize(forward);
-        }
-        const glm::vec2 velXZ(player.velocity.x, player.velocity.z);
-        const float forwardVel = glm::dot(glm::vec2(forward.x, forward.z), velXZ);
-        const float capeMotionLean = glm::clamp(-forwardVel * 3.0f, -10.0f, 16.0f);
+    if(capeEnabled_ && capeModel_.IsLoaded() && capeAnchorNode_ >= 0 && static_cast<size_t>(capeAnchorNode_) < globalTransforms.size()) {
+        const glm::mat4 capeAnchorTransform = root * globalTransforms[capeAnchorNode_];
         capeModel_.DrawShadow(
             shadowShader,
             lightSpaceMatrix,
-            root,
+            capeAnchorTransform,
             capeFlap_,
-            capeMotionLean,
+            capeLean_,
             capeLean2_
         );
     }
@@ -1046,6 +1029,27 @@ bool PlayerModel::LoadGltf(const std::string& modelPath) {
                 nodes_[static_cast<std::size_t>(child)].parent = static_cast<int>(i);
             }
         }
+    }
+
+    capeAnchorNode_ = -1;
+    int bodyIdx = -1;
+    for (size_t i = 0; i < nodes_.size(); ++i) {
+        if (nodes_[i].name == "Body" || nodes_[i].name == "Torso" || nodes_[i].name == "Chest") {
+            bodyIdx = static_cast<int>(i);
+            break;
+        }
+    }
+    if (bodyIdx >= 0) {
+        Node capeAnchor;
+        capeAnchor.name = "CapeAnchor";
+        capeAnchor.parent = bodyIdx;
+        capeAnchor.translation = glm::vec3(0.0f, -13.0f, 0.25f);
+        capeAnchor.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        capeAnchor.scale = glm::vec3(1.0f);
+        nodes_.push_back(capeAnchor);
+        capeAnchorNode_ = static_cast<int>(nodes_.size() - 1);
+        nodes_[bodyIdx].children.push_back(capeAnchorNode_);
+        nodeAnimationKeys_.push_back("CapeAnchor#" + std::to_string(capeAnchorNode_));
     }
 
     int sceneIndex = model.defaultScene;

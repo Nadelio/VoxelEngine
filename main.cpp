@@ -41,7 +41,9 @@ TODO:
 		- Swinging animation (3rd person)
 		- Pick block animation (3rd person)
 - Rendering
-	- Fix cape anchor to properly anchor to player model shoulders and not a position in space relative to the player's position
+	- 3rd person shadow doesn't follow player model, instead follows camera rotation
+	- 3rd person shadow renders on top of the player model, instead of under, potential issue with ordering or the shadow model's offset?
+	- Player model needs to rotate to face the direction of the player's camera when the player starts to move
 - New blocks
 	- Water
 		- Fluids
