@@ -28,13 +28,14 @@ Update: me (the dumbass) and contributors (<3)*
 
 ## Dependencies
 - C++17
-- Clang compiler (recommended, but not necessary)
+- Clang Compiler v19.0.0 <=
 - OpenGL 3.3
 - GLAD (included in repository)
-- SDL3 (both the runtime and the dev kit, *should* be handled by [CMakeLists.txt](CMakeLists.txt))
+- SDL3 (both the runtime and the dev kit are handled by [CMakeLists.txt](CMakeLists.txt))
 - GLM 1.0.3
 - stb_image.h 2.30
-- Dear ImGUI 1.92.7
+- Dear ImGUI 1.92.7 (handled by [CMakeLists.txt](CMakeLists.txt))
+- TinyGTLF v2.9.0 (handled by [CMakeLists.txt](CMakeLists.txt))
 
 ## Compiling from Source
 In the project's root folder:

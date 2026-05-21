@@ -37,6 +37,7 @@ public:
                      const std::function<bool(glm::ivec3)>& hasBlockAtWorld);
 
     void Draw() const;
+    void DrawShadow() const;
     void DrawWireframe() const;
 
     // Iterate every set block: callback(localX, localY, localZ, blockID, rotation)

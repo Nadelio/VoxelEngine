@@ -93,18 +93,23 @@ bool Chunk::EnsureGPUResources() {
     cglBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
 
     cglVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
-                               7 * static_cast<GLsizei>(sizeof(float)), reinterpret_cast<void*>(0));
+                               10 * static_cast<GLsizei>(sizeof(float)), reinterpret_cast<void*>(0));
     cglEnableVertexAttribArray(0);
 
     cglVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE,
-                               7 * static_cast<GLsizei>(sizeof(float)),
+                               10 * static_cast<GLsizei>(sizeof(float)),
                            reinterpret_cast<void*>(3 * sizeof(float)));
     cglEnableVertexAttribArray(1);
 
-        cglVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE,
-                               7 * static_cast<GLsizei>(sizeof(float)),
-                               reinterpret_cast<void*>(5 * sizeof(float)));
-        cglEnableVertexAttribArray(2);
+    cglVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE,
+                           10 * static_cast<GLsizei>(sizeof(float)),
+                           reinterpret_cast<void*>(5 * sizeof(float)));
+    cglEnableVertexAttribArray(2);
+
+    cglVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE,
+                           10 * static_cast<GLsizei>(sizeof(float)),
+                           reinterpret_cast<void*>(7 * sizeof(float)));
+    cglEnableVertexAttribArray(3);
 
     cglBindVertexArray(0);
     return true;
@@ -242,7 +247,7 @@ bool Chunk::RebuildMesh(glm::ivec3 chunkOrigin, const AtlasTexture& atlas, const
                 const float vHigh = static_cast<float>(v0 + H) - 0.5f;
                 const float dFace = static_cast<float>(d) + fi.normalDir * 0.5f;
 
-                const auto baseIndex = static_cast<uint32_t>(vertices.size() / 7);
+                const auto baseIndex = static_cast<uint32_t>(vertices.size() / 10);
                 for (int vi = 0; vi < 4; ++vi) {
                     const bool hiU = fi.flipU ? (vi == 0 || vi == 3) : (vi == 1 || vi == 2);
                     const bool hiV = fi.flipV ? (vi == 0 || vi == 1) : (vi == 2 || vi == 3);
@@ -257,6 +262,11 @@ bool Chunk::RebuildMesh(glm::ivec3 chunkOrigin, const AtlasTexture& atlas, const
                     vertices.push_back(uvs[vi][1]);
                     vertices.push_back(tileU0);
                     vertices.push_back(tileV0);
+                    glm::vec3 normal(0.0f);
+                    normal[N] = static_cast<float>(fi.normalDir);
+                    vertices.push_back(normal.x);
+                    vertices.push_back(normal.y);
+                    vertices.push_back(normal.z);
                 }
 
                 indices.push_back(baseIndex + 0);
@@ -296,6 +306,10 @@ void Chunk::Draw() const {
     if (vao_ == 0 || indexCount_ == 0) return;
     cglBindVertexArray(vao_);
     glDrawElements(GL_TRIANGLES, indexCount_, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
+}
+
+void Chunk::DrawShadow() const {
+    Draw();
 }
 
 void Chunk::DrawWireframe() const {

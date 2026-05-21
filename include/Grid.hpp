@@ -45,7 +45,10 @@ public:
 
     // Draw all blocks; lazily rebuilds any dirty chunk meshes before rendering.
     void Draw(Shader& shader, const AtlasTexture& atlas,
-              const glm::mat4& projection, const glm::mat4& view);
+              const glm::mat4& projection, const glm::mat4& view,
+              const glm::mat4& lightSpaceMatrix);
+
+    void DrawShadowMap(Shader& shader, const AtlasTexture& atlas, const glm::mat4& lightSpaceMatrix);
 
     // Returns true if a block occupies the given integer grid position.
     bool HasBlockAt(glm::ivec3 pos) const;
@@ -109,7 +112,13 @@ public:
     // Render a list of blocks at continuous float positions using the voxel shader.
     void DrawFloatBlocks(const std::vector<FloatBlock>& blocks,
                          Shader& shader, const AtlasTexture& atlas,
-                         const glm::mat4& projection, const glm::mat4& view);
+                         const glm::mat4& projection, const glm::mat4& view,
+                         const glm::mat4& lightSpaceMatrix);
+
+    // Render a list of float-positioned blocks into the shadow map.
+    void DrawFloatBlocksShadow(const std::vector<FloatBlock>& blocks,
+                               Shader& shadowShader,
+                               const glm::mat4& lightSpaceMatrix);
 
     // Returns the set of world positions that hold a gravity-affected block.
     // Maintained incrementally on AddBlock/RemoveBlock/Clear — O(1) per block change.
@@ -128,7 +137,7 @@ private:
     void ForEachBlock(const Ft& callback) const{
         for (const auto& [coord, chunk] : chunks_) {
             const glm::ivec3 origin = coord * Chunk::kSize;
-            chunk->ForEachBlock([&](int lx, int ly, int lz, uint32_t blockID, uint8_t rotation) {
+            chunk->ForEachBlock([&](int lx, int ly, int lz, uint32_t blockID, [[maybe_unused]] uint8_t rotation) {
                 callback(origin + glm::ivec3(lx, ly, lz), blockID);
             });
         }

@@ -34,6 +34,7 @@ namespace {
 }
 
 std::string OpenNativeFileDialog(const char* title, const char* filter) {
+    (void)title;
     DialogResult res;
     if (filter) {
         const std::string pat = ToSdlPattern(filter);
@@ -50,6 +51,7 @@ std::string OpenNativeFileDialog(const char* title, const char* filter) {
 }
 
 std::string OpenNativeFolderDialog(const char* title) {
+    (void)title;
     DialogResult res;
     SDL_ShowOpenFolderDialog(OnDialogResult, &res, nullptr, nullptr, false);
     PumpUntilDone(res);

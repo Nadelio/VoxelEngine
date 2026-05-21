@@ -15,7 +15,7 @@
 // imgui
 #include <imgui.h>
 
-// voxel engine
+// engine
 #include "AtlasTexture.hpp"
 #include "BlockRegistry.hpp"
 #include "Camera.hpp"
@@ -35,25 +35,28 @@
 /*
 TODO:
 - Player model
-	- Skins
-	- Capes
 	- Movement animations (first person and third person)
-		- Walking animation
 		- Sprinting animation
-		- Jumping animation
-		- Crouching animation
-		- Crawling animation
+			- Add sprinting to game
+		- Swinging animation (3rd person)
+		- Pick block animation (3rd person)
+- Rendering
+	- 3rd person shadow doesn't follow player model, instead follows camera rotation
+	- 3rd person shadow renders on top of the player model, instead of under, potential issue with ordering or the shadow model's offset?
+	- Player model needs to rotate to face the direction of the player's camera when the player starts to move
 - New blocks
 	- Water
 		- Fluids
 		- Swimmming
 			- Swimming animation
 		- Water generates based on elevation
+			- Low elevation and medium temperature
 	- Wood
 		- Saplings
 			- Tree/crop growth
 		- Leaves
 			- Decay
+				- Leaf blocks decay into nothing if there isn't an oak log within 2 blocks of the leaf block.
 				- Add decay for grass blocks as well (grass block -> dirt block if block on top)
 	- Clay
 	- Ice
@@ -61,6 +64,13 @@ TODO:
 		- Surface water freezes based on temperature
 	- Glass
 		- Transparency
+	- Torches
+		- Block models
+		- Block-based emission
+			- Material textures
+				- Emission
+				- Gloss
+				- Alpha/Transparency
 - Rendering
 	- Add fog to help cover up unloaded chunks
 	- Add skybox (that rotates between night/day)
@@ -68,7 +78,7 @@ TODO:
 	- Add shadows
 	- Add global lighting (based on time of day)
 	- Add colored point lighting
-	- Add block materials (like shine for ice blocks and transparency for water and glass)
+	- Add block materials (like gloss for ice blocks and transparency for water and glass)
 - Survival mode
 	- Crafting
 		- Crafting table
@@ -94,8 +104,18 @@ TODO:
 					- Water container
 						- Clay
 						- Item inventories
+		- Charcoal
+			- Wood in a furnace -> Charcoal
+			- Wood can be used as a fuel as well
+		- Torches
+			- Emit light when held in hand
+			- Stick + Charcoal
+			- Stick + Wheat
 	- Hunger
+		- Sprinting increases hunger drain
 	- Thirst
+		- Sprinting increases thirst drain
+	- Using tools (hoe, shovel, axe, pickaxe) increases hunger and thirst drain
 	- Health
 		- Damage sources
 			- Starvation
@@ -287,6 +307,7 @@ int main() {
 	const std::string wireframeFragShaderPath = ResolveAssetPath("assets/shaders/wireframe.frag"sv);
 	const std::string blockAtlasPNGPath       = ResolveAssetPath("assets/block_atlas.png"sv);
 	const std::string itemAtlasPNGPath        = ResolveAssetPath("assets/item_atlas.png"sv);
+	const std::string defaultSkinPath         = ResolveAssetPath("assets/textures/skins/Debug.png"sv);
 	const std::string physicsConstantsPath    = ResolveAssetPath("assets/data/physics_constants.data"sv);
 	const std::string blocksDataPath          = ResolveAssetPath("assets/data/blocks.data"sv);
 	const std::string keybindsDataPath        = ResolveAssetPath("assets/data/keybinds.data"sv);
@@ -409,6 +430,8 @@ int main() {
 	ctx.blocksDataPath = blocksDataPath;
 	ctx.physicsConstantsPath = physicsConstantsPath;
 	ctx.keybindsDataPath = keybindsDataPath;
+	ctx.selectedSkinPath = defaultSkinPath;
+	ctx.selectedSkinName = "Debug";
 	SDL_GetWindowSize(ctx.window, &ctx.windowedWidth, &ctx.windowedHeight);
 	ApplyWindowMode(ctx, WindowMode::WINDOWED_FULLSCREEN);
 

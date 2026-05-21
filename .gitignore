@@ -2,3 +2,7 @@ build/
 local/
 .vscode/
 build.nu
+assets/textures/skins/*
+assets/textures/capes/*
+!assets/textures/skins/*debug*
+!assets/textures/capes/*debug*

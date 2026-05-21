@@ -1,7 +1,0 @@
-{
-  "name": "voxelengine",
-  "version-string": "0.1.0",
-  "dependencies": [
-    "sdl3"
-  ]
-}
