@@ -517,7 +517,7 @@ void PlayerModel::UpdateAnimation(const Physics::Entity& player, float dtSeconds
 
     //TODO: Refactor to use Map<state, animation name> in player_model.json
     //TODO: Add new states
-    std::string wantedClip = "stand";
+    std::string wantedClip = "idle";
     if(player.posture == Physics::PostureState::CRAWLING) {
         wantedClip = moving ? "crawl" : "prone";
     } else if(player.posture == Physics::PostureState::CROUCHING && moving) {
@@ -539,7 +539,7 @@ void PlayerModel::UpdateAnimation(const Physics::Entity& player, float dtSeconds
             nextClip = animationHandler_.FindClip("walk");
         }
         if(!nextClip) {
-            nextClip = animationHandler_.FindClip("stand");
+            nextClip = animationHandler_.FindClip("idle");
         }
     }
 
