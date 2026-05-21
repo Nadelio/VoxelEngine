@@ -41,7 +41,7 @@ cmake --build build -j
 - Do not edit [main.yml](.github/workflows/main.yml)
 - Do not edit [README](README.md)
     - I will add your Github profile to the [Contributors section](README.md#contributors) of the [README](README.md)
-- Do not edit [CONTRIBUTING.md](CONTRIBUTING.md)
+- Do not edit [CONTRIBUTING](CONTRIBUTING.md)
 	- I will update TODO list as part of merge request chores
 - No AI-generated source code
 
