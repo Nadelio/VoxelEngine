@@ -37,9 +37,10 @@ TODO:
 - Player model
 	- Movement animations (first person and third person)
 		- Sprinting animation
-			- Add sprinting to game
-		- Swinging animation (3rd person)
-		- Pick block animation (3rd person)
+	- Refactor hand model to use player model first person animations
+	- Refactor animation loading to reference model information in .data files for animations, camera position, etc.
+- Gameplay
+	- Add sprinting to game
 - Rendering
 	- 3rd person shadow doesn't follow player model, instead follows camera rotation
 	- 3rd person shadow renders on top of the player model, instead of under, potential issue with ordering or the shadow model's offset?
@@ -150,12 +151,16 @@ TODO:
 	- Cave generation
 	- Structures
 		- Boulders (need to build these manually)
-- Arm model
+- Arm/Hand model
 	- Interaction animations (these need to be tweaked manually)
 		- Breaking block (swing hand)
 		- Placing block (swing hand)
 		- Picking block (point)
 		- Arm model root position
+- Rendering
+	- Animated texture support for models and blocks
+	- Animated skin textures?
+	- Skin materials (like blocks)
 */
 
 using namespace std::literals::string_view_literals;

@@ -1,0 +1,46 @@
+# format for the animation maps is Map<Tag, String | [String: (1, 5)]>
+# camera anchors are [Int: (3, 3)], and are relative to the player's position
+
+# define the root bone
+root_bone : "Waist"
+
+# third person animations
+third_person : {
+    # define where the camera is positioned
+    camera_anchor : int[0f, 0.62f, 0f] # placed slightly behind the player's position
+    walk : "walking"
+    stand : "stand_idle"
+    crouch : "crouch_idle"
+    crouch_walk : "crouch_walk"
+    prone : "prone_idle"
+    crawl : "crawling"
+    jump : "jumping"
+    fall : "falling"
+    land : "landing"
+    place : "place_block"
+    break_hand : "third_person_break_hand"
+    break_tool : "third_person_break_tool"
+    pick : "third_person_pick_item"
+}
+
+# third person transitions
+third_person_transitions : {
+    # nothing rn
+}
+
+# first person animations
+first_person : {
+    camera_anchor : int[0f, 0f, 0f] # placed at the player's position
+    break_hand : "break_hand"
+    break_tool : "break_tool"
+    pick : "pick_item"
+}
+
+# first person transitions
+first_person_transitions : {
+    # nothing rn
+}
+
+# a value in the animation map can be either a single string or an array of strings (min len 1, max len 5)
+# first element of the string array is the default/fallback animation
+# then it's "moving left", "moving right", "moving forward", "moving back"

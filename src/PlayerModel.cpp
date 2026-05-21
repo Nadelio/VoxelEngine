@@ -514,7 +514,10 @@ void PlayerModel::UpdateAnimation(const Physics::Entity& player, float dtSeconds
 
     const float speedXZ = std::sqrt(player.velocity.x * player.velocity.x + player.velocity.z * player.velocity.z);
     const bool moving = speedXZ > 0.05f;
-    std::string wantedClip = "idle";
+
+    //TODO: Refactor to use Map<state, animation name> in player_model.json
+    //TODO: Add new states
+    std::string wantedClip = "stand";
     if(player.posture == Physics::PostureState::CRAWLING) {
         wantedClip = moving ? "crawl" : "prone";
     } else if(player.posture == Physics::PostureState::CROUCHING && moving) {
@@ -529,13 +532,14 @@ void PlayerModel::UpdateAnimation(const Physics::Entity& player, float dtSeconds
         wantedClip = "walk";
     }
 
+    //TODO: Refactor `FindClip()` to reference the Map<state, animation name> to find the relevant animation for the state instead of searching the .gltf model itself
     const AnimationHandler::Clip* nextClip = animationHandler_.FindClip(wantedClip);
     if(!nextClip) {
         if(moving) {
             nextClip = animationHandler_.FindClip("walk");
         }
         if(!nextClip) {
-            nextClip = animationHandler_.FindClip("idle");
+            nextClip = animationHandler_.FindClip("stand");
         }
     }
 
@@ -1031,6 +1035,7 @@ bool PlayerModel::LoadGltf(const std::string& modelPath) {
         }
     }
 
+    // add cape anchor to main body, if no main body bone found, do not add cape
     capeAnchorNode_ = -1;
     int bodyIdx = -1;
     for (size_t i = 0; i < nodes_.size(); ++i) {
