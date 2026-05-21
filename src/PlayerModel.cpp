@@ -590,6 +590,14 @@ void PlayerModel::Draw(
     skinShader.SetInt("uShadowMap", 1);
     skinShader.SetInt("uReceiveShadows", 1);
     skinShader.SetMat4("uLightSpaceMatrix", glm::value_ptr(lightSpaceMatrix));
+    skinShader.SetVec3("uSunDirection", 0.45f, 1.0f, 0.30f);
+    skinShader.SetVec3("uSunColor", 0.95f, 0.93f, 0.90f);
+    skinShader.SetVec3("uAmbientColor", 0.32f, 0.35f, 0.40f);
+    const glm::vec3 pointPos = player.position + glm::vec3(0.0f, 0.9f, 0.0f);
+    skinShader.SetVec3("uPointLightPos", pointPos.x, pointPos.y, pointPos.z);
+    skinShader.SetVec3("uPointLightColor", 0.0f, 0.0f, 0.0f);
+    skinShader.SetFloat("uPointLightRange", 1.0f);
+    skinShader.SetFloat("uPointLightIntensity", 0.0f);
 
     std::vector<glm::mat4> localTransforms;
     std::vector<glm::mat4> globalTransforms;

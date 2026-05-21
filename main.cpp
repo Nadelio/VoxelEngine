@@ -40,6 +40,13 @@ TODO:
 			- Add sprinting to game
 		- Swinging animation (3rd person)
 		- Pick block animation (3rd person)
+- Rendering
+	- Player model shadow in 1st person
+	- Fix cape anchor to properly anchor to player model shoulders and not a position in space relative to the player's position
+	- Fix 3rd person player model rendering so it doesn't render on top of blocks closer to the camera
+	- Lower 3rd person camera
+		- Prevent clipping by pushing camera closer to player model if block is between player model and camera
+	- Move 3rd person model head before turning entire body (turn body after head has hit +/- 55 degrees from body's facing angle)
 - New blocks
 	- Water
 		- Fluids
@@ -58,6 +65,13 @@ TODO:
 		- Surface water freezes based on temperature
 	- Glass
 		- Transparency
+	- Torches
+		- Block models
+		- Block-based emission
+			- Material textures
+				- Emission
+				- Gloss
+				- Alpha/Transparency
 - Rendering
 	- Add fog to help cover up unloaded chunks
 	- Add skybox (that rotates between night/day)
@@ -91,6 +105,13 @@ TODO:
 					- Water container
 						- Clay
 						- Item inventories
+		- Charcoal
+			- Wood in a furnace -> Charcoal
+			- Wood can be used as a fuel as well
+		- Torches
+			- Emit light when held in hand
+			- Stick + Charcoal
+			- Stick + Wheat
 	- Hunger
 		- Sprinting increases hunger drain
 	- Thirst

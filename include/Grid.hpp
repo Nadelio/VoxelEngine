@@ -115,6 +115,11 @@ public:
                          const glm::mat4& projection, const glm::mat4& view,
                          const glm::mat4& lightSpaceMatrix);
 
+    // Render a list of float-positioned blocks into the shadow map.
+    void DrawFloatBlocksShadow(const std::vector<FloatBlock>& blocks,
+                               Shader& shadowShader,
+                               const glm::mat4& lightSpaceMatrix);
+
     // Returns the set of world positions that hold a gravity-affected block.
     // Maintained incrementally on AddBlock/RemoveBlock/Clear — O(1) per block change.
     const std::unordered_set<glm::ivec3, IVec3Hash>& GravityBlocks() const { return gravityBlocks_; }

@@ -145,21 +145,24 @@ namespace {
 
         pglBindVertexArray(gFallVao);
         pglBindBuffer(GL_ARRAY_BUFFER, gFallVbo);
-        pglBufferData(GL_ARRAY_BUFFER, 24 * 7 * static_cast<GLsizeiptr>(sizeof(float)),
+        pglBufferData(GL_ARRAY_BUFFER, 24 * 10 * static_cast<GLsizeiptr>(sizeof(float)),
                       nullptr, GL_DYNAMIC_DRAW);
         pglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gFallEbo);
         pglBufferData(GL_ELEMENT_ARRAY_BUFFER,
                       static_cast<GLsizeiptr>(sizeof(kIdx)), kIdx.data(), GL_STATIC_DRAW);
         
-        pglVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7 * static_cast<GLsizei>(sizeof(float)),
+        pglVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 10 * static_cast<GLsizei>(sizeof(float)),
                                reinterpret_cast<void*>(0));
         pglEnableVertexAttribArray(0);
-        pglVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 7 * static_cast<GLsizei>(sizeof(float)),
+        pglVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 10 * static_cast<GLsizei>(sizeof(float)),
                                reinterpret_cast<void*>(3 * sizeof(float)));
         pglEnableVertexAttribArray(1);
-        pglVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 7 * static_cast<GLsizei>(sizeof(float)),
+        pglVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 10 * static_cast<GLsizei>(sizeof(float)),
                                reinterpret_cast<void*>(5 * sizeof(float)));
         pglEnableVertexAttribArray(2);
+        pglVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 10 * static_cast<GLsizei>(sizeof(float)),
+                       reinterpret_cast<void*>(7 * sizeof(float)));
+        pglEnableVertexAttribArray(3);
         pglBindVertexArray(0);
         return true;
     }
@@ -728,7 +731,7 @@ void Grid::DrawFloatBlocks(const std::vector<FloatBlock>& blocks,
         const BlockData* data = registry_->Get(fb.blockID);
         if (!data) continue;
 
-        float verts[24 * 7];
+        float verts[24 * 10];
         int idx = 0;
 
         for (int f = 0; f < 6; ++f) {
@@ -758,6 +761,11 @@ void Grid::DrawFloatBlocks(const std::vector<FloatBlock>& blocks,
                 verts[idx++] = uvCorners[v][1];
                 verts[idx++] = tU0;
                 verts[idx++] = tV0;
+                glm::vec3 normal(0.0f);
+                normal[fi.N] = static_cast<float>(fi.normalDir);
+                verts[idx++] = normal.x;
+                verts[idx++] = normal.y;
+                verts[idx++] = normal.z;
             }
         }
 
@@ -768,6 +776,68 @@ void Grid::DrawFloatBlocks(const std::vector<FloatBlock>& blocks,
         const glm::mat4 mvp   = projection * view * model;
         shader.SetMat4("uMVP", glm::value_ptr(mvp));
         shader.SetMat4("uModel", glm::value_ptr(model));
+
+        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
+    }
+
+    pglBindVertexArray(0);
+}
+
+void Grid::DrawFloatBlocksShadow(const std::vector<FloatBlock>& blocks,
+                                 Shader& shadowShader,
+                                 const glm::mat4& lightSpaceMatrix) {
+    if (blocks.empty()) return;
+    if (!InitFallMesh()) return;
+
+    struct FaceLayout { int N, normalDir, U, V; bool flipU, flipV; };
+    static constexpr FaceLayout kFaces[6] = {
+        {2, +1, 0, 1, false, false},  // Front  (+Z)
+        {2, -1, 0, 1, true,  false},  // Back   (-Z)
+        {0, -1, 2, 1, false, false},  // Left   (-X)
+        {0, +1, 2, 1, true,  false},  // Right  (+X)
+        {1, +1, 0, 2, false, true },  // Top    (+Y)
+        {1, -1, 0, 2, false, false},  // Bottom (-Y)
+    };
+
+    shadowShader.Use();
+    pglBindVertexArray(gFallVao);
+
+    for (const FloatBlock& fb : blocks) {
+        float verts[24 * 10];
+        int idx = 0;
+
+        for (int f = 0; f < 6; ++f) {
+            const FaceLayout& fi = kFaces[f];
+            const float dFace = fi.normalDir * 0.5f;
+
+            for (int v = 0; v < 4; ++v) {
+                const bool hiU = fi.flipU ? (v == 0 || v == 3) : (v == 1 || v == 2);
+                const bool hiV = fi.flipV ? (v == 0 || v == 1) : (v == 2 || v == 3);
+                glm::vec3 pos(0.0f);
+                pos[fi.N] = dFace;
+                pos[fi.U] = hiU ? 0.5f : -0.5f;
+                pos[fi.V] = hiV ? 0.5f : -0.5f;
+                verts[idx++] = pos.x;
+                verts[idx++] = pos.y;
+                verts[idx++] = pos.z;
+                verts[idx++] = 0.0f;
+                verts[idx++] = 0.0f;
+                verts[idx++] = 0.0f;
+                verts[idx++] = 0.0f;
+                glm::vec3 normal(0.0f);
+                normal[fi.N] = static_cast<float>(fi.normalDir);
+                verts[idx++] = normal.x;
+                verts[idx++] = normal.y;
+                verts[idx++] = normal.z;
+            }
+        }
+
+        pglBindBuffer(GL_ARRAY_BUFFER, gFallVbo);
+        pglBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_DYNAMIC_DRAW);
+
+        const glm::mat4 model = glm::translate(glm::mat4(1.0f), fb.pos);
+        const glm::mat4 lightMvp = lightSpaceMatrix * model;
+        shadowShader.SetMat4("uLightMVP", glm::value_ptr(lightMvp));
 
         glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
     }

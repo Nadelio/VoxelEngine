@@ -63,5 +63,5 @@ private:
 	Shader    shadowSkinShader_;
 	GLuint    shadowFramebuffer_ = 0;
 	GLuint    shadowDepthTexture_ = 0;
-	int       shadowMapSize_ = 2048;
+	int       shadowMapSize_ = 4096;
 };

@@ -62,7 +62,13 @@ bool WorldSession::EnsureShadowResources() {
 
 	glGenTextures(1, &shadowDepthTexture_);
 	glBindTexture(GL_TEXTURE_2D, shadowDepthTexture_);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, shadowMapSize_, shadowMapSize_, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+	GLint maxTextureSize = 0;
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
+	if(maxTextureSize > 0 && shadowMapSize_ > maxTextureSize) {
+		shadowMapSize_ = maxTextureSize;
+	}
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, shadowMapSize_, shadowMapSize_, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -87,10 +93,21 @@ bool WorldSession::EnsureShadowResources() {
 glm::mat4 WorldSession::BuildLightSpaceMatrix(const AppContext& ctx) const {
 	const glm::vec3 focus = ctx.player->position + glm::vec3(0.0f, 4.0f, 0.0f);
 	const glm::vec3 lightDir = glm::normalize(glm::vec3(-0.45f, -1.0f, -0.30f));
-	const glm::vec3 lightPos = focus - lightDir * 52.0f;
+	const glm::vec3 lightPos = focus - lightDir * 42.0f;
 	const glm::mat4 lightView = glm::lookAt(lightPos, focus, glm::vec3(0.0f, 1.0f, 0.0f));
-	const glm::mat4 lightProj = glm::ortho(-40.0f, 40.0f, -40.0f, 40.0f, 1.0f, 120.0f);
-	return lightProj * lightView;
+	const glm::mat4 lightProj = glm::ortho(-30.0f, 30.0f, -30.0f, 30.0f, 1.0f, 96.0f);
+	glm::mat4 lightSpace = lightProj * lightView;
+
+	const float halfSize = static_cast<float>(shadowMapSize_) * 0.5f;
+	glm::vec4 shadowOrigin = lightSpace * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	shadowOrigin /= shadowOrigin.w;
+	const glm::vec2 projected = glm::vec2(shadowOrigin) * halfSize;
+	const glm::vec2 snapped = glm::round(projected);
+	const glm::vec2 offset = (snapped - projected) / halfSize;
+	glm::mat4 snapMatrix(1.0f);
+	snapMatrix[3][0] = offset.x;
+	snapMatrix[3][1] = offset.y;
+	return snapMatrix * lightSpace;
 }
 
 void WorldSession::RenderShadowPass(const AppContext& ctx, const glm::mat4& lightSpaceMatrix, int winW, int winH) {
@@ -102,12 +119,23 @@ void WorldSession::RenderShadowPass(const AppContext& ctx, const glm::mat4& ligh
 	glViewport(0, 0, shadowMapSize_, shadowMapSize_);
 	glClear(GL_DEPTH_BUFFER_BIT);
 	glCullFace(GL_FRONT);
+	glEnable(GL_POLYGON_OFFSET_FILL);
+	glPolygonOffset(1.1f, 2.0f);
 
 	ctx.grid->DrawShadowMap(shadowShader_, *ctx.blockAtlas, lightSpaceMatrix);
+	if(!ctx.physics->GetFallingBlocks().empty()) {
+		std::vector<Grid::FloatBlock> fallingVisual;
+		fallingVisual.reserve(ctx.physics->GetFallingBlocks().size());
+		for(const Physics::FallingBlock& fb : ctx.physics->GetFallingBlocks()) {
+			fallingVisual.push_back({fb.pos, fb.blockID});
+		}
+		ctx.grid->DrawFloatBlocksShadow(fallingVisual, shadowShader_, lightSpaceMatrix);
+	}
 	if(ctx.gameState == GameState::PLAYING && thirdPersonView) {
 		playerModel_.DrawShadow(shadowSkinShader_, lightSpaceMatrix, *ctx.player, ctx.camera->Forward());
 	}
 
+	glDisable(GL_POLYGON_OFFSET_FILL);
 	glCullFace(GL_BACK);
 	wglBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glViewport(0, 0, winW, winH);
@@ -504,6 +532,17 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 	wglActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, shadowDepthTexture_);
 	wglActiveTexture(GL_TEXTURE0);
+
+	const glm::vec3 sunDir = glm::normalize(glm::vec3(0.45f, 1.0f, 0.30f));
+
+	ctx.defaultShader->Use();
+	ctx.defaultShader->SetVec3("uSunDirection", sunDir.x, sunDir.y, sunDir.z);
+	ctx.defaultShader->SetVec3("uSunColor", 0.95f, 0.93f, 0.90f);
+	ctx.defaultShader->SetVec3("uAmbientColor", 0.36f, 0.39f, 0.44f);
+	ctx.defaultShader->SetVec3("uPointLightPos", 0.0f, 0.0f, 0.0f);
+	ctx.defaultShader->SetVec3("uPointLightColor", 0.0f, 0.0f, 0.0f);
+	ctx.defaultShader->SetFloat("uPointLightRange", 1.0f);
+	ctx.defaultShader->SetFloat("uPointLightIntensity", 0.0f);
 
 	if(!(debugView && debugWireframeOnly)) {
 		ctx.grid->Draw(*ctx.defaultShader, *ctx.blockAtlas, proj, view, lightSpaceMatrix);

@@ -12,6 +12,7 @@ uniform int uJointCount;
 uniform mat4 uJointMatrices[64];
 out vec2 vUV;
 out vec4 vShadowCoord;
+out vec3 vWorldPos;
 
 void main() {
     vec4 position = vec4(aPos, 1.0);
@@ -32,4 +33,5 @@ void main() {
     gl_Position = uMVP * position;
     vUV = aUV;
     vShadowCoord = uLightSpaceMatrix * worldPos;
+    vWorldPos = worldPos.xyz;
 }

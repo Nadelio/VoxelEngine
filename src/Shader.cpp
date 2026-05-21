@@ -22,7 +22,9 @@ namespace {
     PFNGLGETUNIFORMLOCATIONPROC pglGetUniformLocation = nullptr;
     PFNGLUNIFORMMATRIX4FVPROC pglUniformMatrix4fv = nullptr;
     PFNGLUNIFORM1IPROC pglUniform1i = nullptr;
+    PFNGLUNIFORM1FPROC pglUniform1f = nullptr;
     PFNGLUNIFORM2FPROC pglUniform2f = nullptr;
+    PFNGLUNIFORM3FPROC pglUniform3f = nullptr;
     PFNGLUNIFORM4FPROC pglUniform4f = nullptr;
 
     bool gLoaded = false;
@@ -60,7 +62,9 @@ bool Shader::LoadOpenGLFunctions() {
     && (pglGetUniformLocation = GLProc<PFNGLGETUNIFORMLOCATIONPROC>("glGetUniformLocation"))
     && (pglUniformMatrix4fv = GLProc<PFNGLUNIFORMMATRIX4FVPROC>("glUniformMatrix4fv"))
     && (pglUniform1i = GLProc<PFNGLUNIFORM1IPROC>("glUniform1i"))
+    && (pglUniform1f = GLProc<PFNGLUNIFORM1FPROC>("glUniform1f"))
     && (pglUniform2f = GLProc<PFNGLUNIFORM2FPROC>("glUniform2f"))
+    && (pglUniform3f = GLProc<PFNGLUNIFORM3FPROC>("glUniform3f"))
     && (pglUniform4f = GLProc<PFNGLUNIFORM4FPROC>("glUniform4f"))
     );
 
@@ -191,12 +195,28 @@ void Shader::SetInt(const char* name, int value) const {
     pglUniform1i(it->second, value);
 }
 
+void Shader::SetFloat(const char* name, float value) const {
+    assert(pglGetUniformLocation && pglUniform1f && program_ != 0);
+    auto it = locationCache_.find(name);
+    if (it == locationCache_.end())
+        it = locationCache_.emplace(name, pglGetUniformLocation(program_, name)).first;
+    pglUniform1f(it->second, value);
+}
+
 void Shader::SetVec4(const char* name, float x, float y, float z, float w) const {
     assert(pglGetUniformLocation && pglUniform4f && program_ != 0);
     auto it = locationCache_.find(name);
     if (it == locationCache_.end())
         it = locationCache_.emplace(name, pglGetUniformLocation(program_, name)).first;
     pglUniform4f(it->second, x, y, z, w);
+}
+
+void Shader::SetVec3(const char* name, float x, float y, float z) const {
+    assert(pglGetUniformLocation && pglUniform3f && program_ != 0);
+    auto it = locationCache_.find(name);
+    if (it == locationCache_.end())
+        it = locationCache_.emplace(name, pglGetUniformLocation(program_, name)).first;
+    pglUniform3f(it->second, x, y, z);
 }
 
 void Shader::SetVec2(const char* name, float x, float y) const {
