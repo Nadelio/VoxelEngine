@@ -36,14 +36,16 @@ public:
         const glm::mat4& view,
         const glm::mat4& lightSpaceMatrix,
         const Physics::Entity& player,
-        const glm::vec3& cameraForward
+        const glm::vec3& cameraForward,
+        bool firstPerson
     ) const;
 
     void DrawShadow(
         Shader& shadowShader,
         const glm::mat4& lightSpaceMatrix,
         const Physics::Entity& player,
-        const glm::vec3& cameraForward
+        const glm::vec3& cameraForward,
+        bool firstPerson
     ) const;
 
 private:

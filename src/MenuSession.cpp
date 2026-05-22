@@ -442,7 +442,7 @@ void MenuSession::RenderSkinPreview(int winW, int winH, AppContext& ctx) {
 	mglActiveTexture(GL_TEXTURE0);
 
 	skinPreviewModel_.UpdateAnimation(previewPlayer, 1.0f / 60.0f, false);
-	skinPreviewModel_.Draw(skinPreviewShader_, projection, view, lightSpace, previewPlayer, cameraForward);
+	skinPreviewModel_.Draw(skinPreviewShader_, projection, view, lightSpace, previewPlayer, cameraForward, false);
 
 	mglBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(priorFramebuffer));
 	glViewport(priorViewport[0], priorViewport[1], priorViewport[2], priorViewport[3]);

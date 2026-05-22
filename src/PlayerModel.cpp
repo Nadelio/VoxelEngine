@@ -581,7 +581,8 @@ void PlayerModel::Draw(
     const glm::mat4& view,
     const glm::mat4& lightSpaceMatrix,
     const Physics::Entity& player,
-    const glm::vec3& cameraForward
+    const glm::vec3& cameraForward,
+    bool firstPerson
 ) const {
     static bool loggedMissingTexture = false;
     static bool loggedMissingShader = false;
@@ -608,34 +609,49 @@ void PlayerModel::Draw(
     while (cameraYaw > glm::pi<float>()) cameraYaw -= glm::two_pi<float>();
     while (cameraYaw < -glm::pi<float>()) cameraYaw += glm::two_pi<float>();
 
-    if (bodyYaw_ == 0.0f && lastCameraYaw_ == 0.0f) {
-        bodyYaw_ = cameraYaw;
-        lastCameraYaw_ = cameraYaw;
+    float speedXZ = std::sqrt(player.velocity.x * player.velocity.x + player.velocity.z * player.velocity.z);
+    bool moving = speedXZ > 0.05f;
+
+    float bodyYaw = bodyYaw_;
+    float yawOffset = 0.0f;
+    if (firstPerson) {
+        bodyYaw = cameraYaw;
+        yawOffset = 0.0f;
+    } else {
+        float yawDelta = cameraYaw - bodyYaw_;
+        while (yawDelta > glm::pi<float>()) yawDelta -= glm::two_pi<float>();
+        while (yawDelta < -glm::pi<float>()) yawDelta += glm::two_pi<float>();
+        constexpr float maxHeadYaw = glm::radians(55.0f);
+        if (moving) {
+            float maxStep = glm::radians(6.0f);
+            if (std::abs(yawDelta) < maxStep) {
+                bodyYaw_ = cameraYaw;
+            } else {
+                bodyYaw_ += (yawDelta > 0 ? 1 : -1) * maxStep;
+            }
+        }
+        yawOffset = cameraYaw - bodyYaw_;
+        while (yawOffset > glm::pi<float>()) yawOffset -= glm::two_pi<float>();
+        while (yawOffset < -glm::pi<float>()) yawOffset += glm::two_pi<float>();
+        if (yawOffset > maxHeadYaw) {
+            bodyYaw_ += yawOffset - maxHeadYaw;
+            yawOffset = maxHeadYaw;
+        } else if (yawOffset < -maxHeadYaw) {
+            bodyYaw_ += yawOffset + maxHeadYaw;
+            yawOffset = -maxHeadYaw;
+        }
+        while (bodyYaw_ > glm::pi<float>()) bodyYaw_ -= glm::two_pi<float>();
+        while (bodyYaw_ < -glm::pi<float>()) bodyYaw_ += glm::two_pi<float>();
+        bodyYaw = bodyYaw_;
     }
-
-    float yawOffset = cameraYaw - bodyYaw_;
-    while (yawOffset > glm::pi<float>()) yawOffset -= glm::two_pi<float>();
-    while (yawOffset < -glm::pi<float>()) yawOffset += glm::two_pi<float>();
-
-    constexpr float maxHeadYaw = glm::radians(55.0f);
-    if (yawOffset > maxHeadYaw) {
-        bodyYaw_ += yawOffset - maxHeadYaw;
-        yawOffset = maxHeadYaw;
-    } else if (yawOffset < -maxHeadYaw) {
-        bodyYaw_ += yawOffset + maxHeadYaw;
-        yawOffset = -maxHeadYaw;
-    }
-
-    while (bodyYaw_ > glm::pi<float>()) bodyYaw_ -= glm::two_pi<float>();
-    while (bodyYaw_ < -glm::pi<float>()) bodyYaw_ += glm::two_pi<float>();
 
     lastCameraYaw_ = cameraYaw;
 
-    glm::vec3 horizontalForward(std::sin(bodyYaw_), 0.0f, std::cos(bodyYaw_));
+    glm::vec3 horizontalForward(std::sin(bodyYaw), 0.0f, std::cos(bodyYaw));
     glm::vec3 feetPos = player.position - glm::vec3(0.0f, player.eyeFromFeet, 0.0f);
     glm::mat4 root(1.0f);
     root = glm::translate(root, feetPos + glm::vec3(0.0f, -0.03f, 0.0f));
-    root = glm::rotate(root, bodyYaw_, glm::vec3(0.0f, 1.0f, 0.0f));
+    root = glm::rotate(root, bodyYaw, glm::vec3(0.0f, 1.0f, 0.0f));
     root = glm::scale(root, glm::vec3(renderScale_));
 
     float headYawOffset = yawOffset;
@@ -669,7 +685,7 @@ void PlayerModel::Draw(
     constexpr std::size_t kMaxSkinJoints = 64;
     std::size_t drawnPrimitiveCount = 0;
     std::size_t skinnedPrimitiveCount = 0;
-    std::size_t drawnIndexCount = 0;
+    std::size_t drawnIndex_count = 0;
     for(std::size_t nodeIndex = 0; nodeIndex < nodes_.size(); ++nodeIndex) {
         const Node& node = nodes_[nodeIndex];
         if(node.mesh < 0 || node.mesh >= static_cast<int>(meshes_.size())) {
@@ -720,7 +736,7 @@ void PlayerModel::Draw(
             pglBindVertexArray(primitive.vao);
             glDrawElements(GL_TRIANGLES, primitive.indexCount, GL_UNSIGNED_INT, nullptr);
             ++drawnPrimitiveCount;
-            drawnIndexCount += static_cast<std::size_t>(primitive.indexCount);
+            drawnIndex_count += static_cast<std::size_t>(primitive.indexCount);
             if(useSkinning) {
                 ++skinnedPrimitiveCount;
             }
@@ -754,7 +770,7 @@ void PlayerModel::Draw(
             skins_.size(),
             drawnPrimitiveCount,
             skinnedPrimitiveCount,
-            drawnIndexCount,
+            drawnIndex_count,
             feetPos.x,
             feetPos.y,
             feetPos.z,
@@ -769,13 +785,22 @@ void PlayerModel::DrawShadow(
     Shader& shadowShader,
     const glm::mat4& lightSpaceMatrix,
     const Physics::Entity& player,
-    const glm::vec3& cameraForward
+    const glm::vec3& cameraForward,
+    bool firstPerson
 ) const {
     if(!initialized_) {
         return;
     }
 
-    const glm::mat4 root = ComputeRootTransform(player, cameraForward);
+    float cameraYaw = std::atan2(cameraForward.x, cameraForward.z) + glm::pi<float>();
+    while (cameraYaw > glm::pi<float>()) cameraYaw -= glm::two_pi<float>();
+    while (cameraYaw < -glm::pi<float>()) cameraYaw += glm::two_pi<float>();
+    float bodyYaw = firstPerson ? cameraYaw : bodyYaw_;
+    glm::vec3 feetPos = player.position - glm::vec3(0.0f, player.eyeFromFeet, 0.0f);
+    glm::mat4 root(1.0f);
+    root = glm::translate(root, feetPos + glm::vec3(0.0f, -0.12f, 0.0f)); // lower y-offset for shadow
+    root = glm::rotate(root, bodyYaw, glm::vec3(0.0f, 1.0f, 0.0f));
+    root = glm::scale(root, glm::vec3(renderScale_));
     std::vector<glm::mat4> localTransforms;
     std::vector<glm::mat4> globalTransforms;
     BuildAnimatedNodeTransforms(localTransforms, globalTransforms);

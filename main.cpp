@@ -40,10 +40,6 @@ TODO:
 	- Refactor animation loading to reference model information in `.data` files for animations, camera position, etc.
 - Gameplay
 	- Add sprinting to game
-- Rendering
-	- 3rd person shadow doesn't follow player model, instead follows camera rotation
-	- 3rd person shadow renders on top of the player model, instead of under, potential issue with ordering or the shadow model's offset?
-	- Player model needs to rotate to face the direction of the player's camera when the player starts to move
 - New blocks
 	- Water
 		- Fluids
@@ -152,6 +148,7 @@ TODO:
 	- Structures
 		- Boulders (need to build these manually)
 - Rendering
+	- Connected textures
 	- Animated texture support for models and blocks
 		- Define in `./assets/data/models/<model_name>.data`
 		- Define in `./assets/data/blocks/<block_name>.data`
@@ -193,6 +190,9 @@ TODO:
 	- Ambience
 		- Music?
 		- Biome-based nature sounds
+- Lua Scripting Support
+- Multiplayer (tentative)
+- Sandbox mode (tentative)
 */
 
 using namespace std::literals::string_view_literals;

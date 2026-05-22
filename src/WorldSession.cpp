@@ -134,7 +134,7 @@ void WorldSession::RenderShadowPass(const AppContext& ctx, const glm::mat4& ligh
 	if(ctx.gameState == GameState::PLAYING) {
 		Physics::Entity shadowPlayer = *ctx.player;
 		shadowPlayer.position.y += 0.08f;
-		playerModel_.DrawShadow(shadowSkinShader_, lightSpaceMatrix, shadowPlayer, ctx.camera->Forward());
+		playerModel_.DrawShadow(shadowSkinShader_, lightSpaceMatrix, shadowPlayer, ctx.camera->Forward(), !thirdPersonView);
 	}
 
 	glDisable(GL_POLYGON_OFFSET_FILL);
@@ -593,7 +593,8 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 			view,
 			lightSpaceMatrix,
 			*ctx.player,
-			ctx.camera->Forward()
+			ctx.camera->Forward(),
+			false
 		);
 	}
 
