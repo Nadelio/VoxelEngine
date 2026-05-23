@@ -156,6 +156,7 @@ struct Keybinds {
     KeyChord move_left      = KeyChord{{SDL_SCANCODE_A}};
     KeyChord move_right     = KeyChord{{SDL_SCANCODE_D}};
     KeyChord jump           = KeyChord{{SDL_SCANCODE_SPACE}};
+    KeyChord sprint         = KeyChord{{SDL_SCANCODE_LSHIFT}};
     KeyChord crouch         = KeyChord{{SDL_SCANCODE_LCTRL}};
     KeyChord crawl_toggle   = KeyChord{{SDL_SCANCODE_LCTRL, SDL_SCANCODE_LSHIFT}};
 
@@ -205,6 +206,7 @@ inline bool LoadKeybinds(const std::string& path, Keybinds& out) {
     readChord("move_left",            out.move_left);
     readChord("move_right",           out.move_right);
     readChord("jump",                 out.jump);
+    readChord("sprint",               out.sprint);
     readChord("crouch",               out.crouch);
     readChord("crawl_toggle",         out.crawl_toggle);
     readChord("debug_toggle",         out.debug_toggle);
@@ -325,6 +327,7 @@ inline bool SaveKeybinds(const std::string& path, const Keybinds& kb) {
     write("move_left",            kb.move_left);
     write("move_right",           kb.move_right);
     write("jump",                 kb.jump);
+    write("sprint",               kb.sprint);
     write("crouch",               kb.crouch);
     write("crawl_toggle",         kb.crawl_toggle);
     std::fprintf(f, "\n# hotbar\n");

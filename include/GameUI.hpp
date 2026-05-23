@@ -557,6 +557,7 @@ inline void DrawSettingsMenu(
     std::string& pickedDataPackPath,
     int& windowModeIdx,
     bool& windowModeChanged,
+    bool& toggleSprint,
     int winW, int winH)
 {
     const float w = std::max(280.0f, winW * 0.30f);
@@ -576,6 +577,7 @@ inline void DrawSettingsMenu(
     ImGui::Spacing();
 
     ImGui::SeparatorText("Controls");
+    ImGui::Checkbox("Toggle Sprint", &toggleSprint);
     if (ImGui::Button("Edit Keybinds", ImVec2(btnW, 0)))
         wantOpenControls = true;
     ImGui::Spacing();
@@ -628,6 +630,7 @@ inline void DrawControlsMenu(Keybinds& kb, int& listeningIdx, bool& wantBack, in
         {"Move Left",        &kb.move_left},
         {"Move Right",       &kb.move_right},
         {"Jump",             &kb.jump},
+        {"Sprint",           &kb.sprint},
         {"Crouch",           &kb.crouch},
         {"Crawl Toggle",     &kb.crawl_toggle},
         {"Hotbar",           nullptr},

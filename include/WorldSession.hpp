@@ -30,6 +30,9 @@ struct WorldSession {
 	bool prevCrawlComboDown   = false;
 	bool crawlToggleThisFrame = false;
 
+	// Sprint state
+	bool isSprinting_ = false;
+
 	// Flying state (structure sessions only)
 	bool     isFlying       = false;
 	uint64_t lastSpaceTapMs = 0;

@@ -487,6 +487,7 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 			                 pickedBlockAtlas, pickedItemAtlas,
 			                 pickedResPack, pickedDataPack,
 			                 windowModeIdx, windowModeChanged,
+			                 ctx.toggleSprint,
 			                 winW, winH);
 
 			if(windowModeChanged && windowModeIdx >= 0 && windowModeIdx <= 2) {

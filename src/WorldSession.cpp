@@ -260,6 +260,7 @@ void WorldSession::ProcessEvent(const SDL_Event& event, AppContext& ctx) {
 		if(nonRepeat && ChordPressed(sc, kbState, ctx.keybinds->ui_toggle))   { showGameplayUi = !showGameplayUi; }
 		if(nonRepeat && ChordPressed(sc, kbState, ctx.keybinds->screenshot))  { ctx.screenshotRequested = true; }
 		if(nonRepeat && ChordPressed(sc, kbState, ctx.keybinds->view_toggle)) { thirdPersonView = !thirdPersonView; }
+		if(nonRepeat && ctx.toggleSprint && ChordPressed(sc, kbState, ctx.keybinds->sprint)) { isSprinting_ = !isSprinting_; }
 		if(ChordPressed(sc, kbState, ctx.keybinds->debug_toggle))         { debugView          = !debugView; }
 		if(ChordPressed(sc, kbState, ctx.keybinds->debug_wireframe))      { debugWireframe     = !debugWireframe; }
 		if(ChordPressed(sc, kbState, ctx.keybinds->debug_block))          { debugLookedAtBlock = !debugLookedAtBlock; }
@@ -458,7 +459,23 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 		if(ChordHeld(keys, ctx.keybinds->move_left))    moveDir -= right;
 		if(glm::length2(moveDir) > 0.0000001f) moveDir = glm::normalize(moveDir);
 
-		const glm::vec3 desiredHV = moveDir * ctx.physicsConstants->moveSpeed;
+		const bool crouchHeld = ChordHeld(keys, ctx.keybinds->crouch);
+		const bool movingForward = ChordHeld(keys, ctx.keybinds->move_forward);
+		const bool anyMovement = glm::length2(moveDir) > 0.0000001f;
+
+		// Update sprint state
+		if (!ctx.toggleSprint) {
+			// Hold-to-sprint: active while key is held, moving forward, and not crouching
+			isSprinting_ = ChordHeld(keys, ctx.keybinds->sprint) && movingForward && !crouchHeld;
+		} else {
+			// Toggle sprint: cancel if crouching or if no movement
+			if (crouchHeld || !anyMovement) {
+				isSprinting_ = false;
+			}
+		}
+
+		const float speedMultiplier = (isSprinting_ && !crouchHeld) ? ctx.physicsConstants->sprintMultiplier : 1.0f;
+		const glm::vec3 desiredHV = moveDir * ctx.physicsConstants->moveSpeed * speedMultiplier;
 
 		if(ctx.isStructureSession && isFlying) {
 			const bool flyUp   = ChordHeld(keys, ctx.keybinds->jump);
@@ -472,7 +489,6 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 				glm::vec3(desiredHV.x, vertVel, desiredHV.z)
 			);
 		} else {
-			const bool crouchHeld = ChordHeld(keys, ctx.keybinds->crouch);
 			ctx.physics->StepEntityEuler(
 				*ctx.player,
 				static_cast<float>(dt),
@@ -509,8 +525,7 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 
 	handModel_.Update(static_cast<float>(dt));
 
-	const float horizontalSpeed = glm::length(glm::vec2(ctx.player->velocity.x, ctx.player->velocity.z));
-	const bool sprinting = horizontalSpeed > (ctx.physicsConstants->moveSpeed * 0.92f);
+	const bool sprinting = isSprinting_;
 	playerModel_.UpdateAnimation(*ctx.player, static_cast<float>(dt), sprinting);
 
 	if (ctx.hotbar->SlotHasBlock(ctx.hotbar->SelectedSlot()))

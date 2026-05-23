@@ -8,6 +8,7 @@ struct PhysicsConstants {
     float gravity               = 21.0f;
     float jumpSpeed             =  7.0f;
     float moveSpeed             =  4.5f;
+    float sprintMultiplier      =  1.6f;
     float crouchSlowdown        =  2.0f;
     float proneSlowdown         =  4.0f;
     float airResistance         =  8.0f;
@@ -40,6 +41,7 @@ inline bool LoadPhysicsConstants(const std::string& path, PhysicsConstants& out)
     readFloat("gravity",                  out.gravity);
     readFloat("jump_speed",               out.jumpSpeed);
     readFloat("move_speed",               out.moveSpeed);
+    readFloat("sprint_multiplier",        out.sprintMultiplier);
     readFloat("crouch_slowdown",          out.crouchSlowdown);
     readFloat("prone_slowdown",           out.proneSlowdown);
     readFloat("air_resistance",           out.airResistance);
