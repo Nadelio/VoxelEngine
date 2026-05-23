@@ -1,0 +1,66 @@
+# Todo List
+This is the list of things that can be done at any time
+
+- Player Model
+    - Finished Animations Tracker: https://github.com/Nadelio/VoxelEngine/issues/22
+	- Refactor hand model to use player model first person animations
+- Rendering
+	- Add fog to help cover up unloaded chunks
+	- Add skybox (that rotates between night/day)
+	- Add ambient occlusion
+	- Add shadows
+	- Add global lighting (based on time of day)
+	- Add colored point lighting
+	- Add block materials (like gloss for ice blocks and transparency for water and glass)
+	- Replicate the 3D skin layers mod (See: https://www.curseforge.com/minecraft/mc-mods/skin-layers-3d for reference)
+    - Connected textures
+	- Animated texture support for models and blocks
+		- Define in `./assets/data/models/<model_name>.data`
+		- Define in `./assets/data/blocks/<block_name>.data`
+		- Animated blocks use multiple textures, stored in a folder with the block name
+			- `./assets/textures/blocks/<block_name>/`
+			- Each frame of the animated texture needs to be numbered, starting at 0
+				- Ex: `0.png`, `1.png`, etc.
+		- Animated models use multiple textures, stored in a folder with the model name
+			- `./assets/textures/models/<model_name>/`
+			- Each frame of the animated texture needs to be numbered, starting at 0
+				- Ex: `0.png`, `1.png`, etc.
+	- Animated skin textures
+		- Define in `./assets/data/skins/<skin_name>.data`
+		- Animated skins use multiple textures, stored in a folder with the skin name
+			- `./assets/textures/skins/<skin_name>/`
+			- Each frame of the animated texture needs to be numbered, starting at 0
+				- Ex: `0.png`, `1.png`, etc.
+	- Animated cape textures
+		- Define in `./assets/data/capes/<cape_name>.data`
+		- Animated capes use multiple textures, stored in a folder with the cape name
+			- `./assets/textures/capes/<cape_name>/`
+			- Each frame of the animated texture needs to be numbered, starting at 0
+				- Ex: `0.png`, `1.png`, etc.
+	- Item/Block Specific holding/placing/breaking animations?
+		- Ex: Torch being held above head
+		- Define in `./assets/data/items/<item_name>.data`
+	- Skin materials (like blocks)
+		- Define in `./assets/data/blocks/<block_name>.data`
+- UI
+	- Add inventory texture
+	- Add hotbar texture
+	- Add crafting texture
+	- Add furnace texture
+	- Add menu background texture (maybe just tile a block texture?)
+	- Change block hotbar render to mimic Minecraft
+    - Fix various UI resizing issues
+	- Refactor UI to be tree-based/data-driven instead of hard-coded
+- Terrain Generation
+    - Structures
+		- Boulders (need to build these manually)
+- Particle System
+	- Torches create small spark particles
+	- Water creates splash particles
+	- Player creates small footsteps on dirt and grass
+- Sounds
+	- Footsteps
+		- Blocks will change footstep sound
+	- Ambience
+		- Music?
+		- Biome-based nature sounds

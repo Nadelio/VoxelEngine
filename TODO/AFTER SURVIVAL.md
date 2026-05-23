@@ -1,0 +1,33 @@
+# Todo List
+This is the list of things to complete after survival mode
+
+- Terrain Generation
+	- Infinite worlds
+		- Loading/Unloading chunks based on distance from center of chunk
+	- Cave generation
+- Weather System?
+	- Rain or snow particles depending on biome
+	- Lightning
+- Lua Scripting Support
+	- API
+		- Physics
+			- Creating hitboxes/colliders and adding event callbacks
+		- UI
+			- Feeding custom UI to players
+		- Entities
+			- Custom entities
+				- Models
+				- Textures
+				- Hitboxes
+				- Behaviors
+			- Players
+				- Custom states
+		- Graphics/Rendering
+			- Add/Remove shaders
+			- Change textures
+			- Change models
+		- Particle System
+		- Sound/Audio System
+- Sandbox Mode
+	- Essentially just MC Creative Mode
+- Multiplayer (tentative)

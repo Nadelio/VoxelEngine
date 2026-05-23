@@ -1,0 +1,44 @@
+# Todo List
+This is the list of things to complete before survival mode
+
+- Player model
+	- Refactor animation loading to reference model information in `.data` files for animations, camera position, etc.
+- New blocks
+	- Water
+		- Fluids
+			- Source fluid blocks
+			- Fluid-Fluid interactions
+				- Define in `./assets/data/fluids.data`
+			- Fluid settings
+				- Define in `./assets/data/fluids.data`
+			- Fluid rendering
+				- mimic MC-style of fluid rendering
+		- Swimmming
+			- Wading state (enter wading state if in fluid and not sprinting)
+				- Wading animation
+			- Swimming state (enter swimming state if in fluid and sprinting)
+				- Swimming animation
+		- Water generates based on elevation
+			- Low elevation and medium temperature
+	- Wood
+		- Saplings
+			- Tree/crop growth
+		- Leaves
+			- Decay
+				- Leaf blocks decay into nothing if there isn't an oak log within 2 blocks of the leaf block.
+				- Add decay for grass blocks as well (grass block -> dirt block if block on top)
+	- Clay
+	- Ice
+		- Block-based friction values
+		- Surface water freezes based on temperature
+	- Glass
+		- Transparency
+	- Torches
+		- Block models
+		- Block-based emission
+			- Material textures
+				- Emission
+				- Gloss
+				- Alpha/Transparency
+	- Oak Stairs
+		- Custom block colliders (ramp collider specifically)

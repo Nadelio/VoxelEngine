@@ -1,0 +1,63 @@
+# Survival Mode Todo List
+- Crafting
+	- Crafting table
+		- Block UI
+		- Block interaction
+- Player Inventory
+	- `<T>` (Tab) to open inventory by default
+	- 32 slots?
+	- How big should a stack be?
+		- 64, 128, variable?
+- Items
+	- Dropped item and block models
+	- Stone and Wood Tools
+		- Pickaxe
+		- Shovel
+		- Axe
+		- Hoe
+	- Food
+		- Dough
+			- Flour
+				- Bread
+					- Wheat
+						- Wheat seeds
+					- Furnace
+						- Block inventories
+						- Block processing
+			- Water
+				- Water container
+					- Clay
+					- Item inventories
+	- Charcoal
+		- Wood in a furnace -> Charcoal
+		- Wood can be used as a fuel as well
+	- Torches
+		- Emit light when held in hand
+		- Stick + Charcoal
+		- Stick + Wheat
+- Hunger
+	- Sprinting increases hunger drain
+- Thirst
+	- Sprinting increases thirst drain
+- Using tools (hoe, shovel, axe, pickaxe) increases hunger and thirst drain
+- Health
+	- Damage sources
+		- Starvation
+		- Dehydration
+		- Drowning
+		- Suffocating
+		- Burning
+			- Fire block
+				- Blocks with no collision
+				- Blocks that place blocks (fire spreading)
+- Mining
+- Farming
+	- Use hoe to plow ground
+	- Right click to place sapling or wheat seeds
+	- Right click with dirt to cover
+	- Right click with filled clay bowl to water
+- UI
+	- Health, Hunger, Thirst UIs
+		- Two layers
+			- Empty hearts/hunger/thirst layer
+			- Full/Half hearts/hunger/thirst layer
