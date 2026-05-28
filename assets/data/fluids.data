@@ -1,0 +1,49 @@
+# direction tags: none, bottom, top, sides, any
+# only one fluid/block/group key is allowed in an entry
+# fluid/block keys can be the id or the name of the fluid/block
+# groups don't have ids so they always use the name of the group
+# A fluid can have 0 or more interaction entries
+
+fluid: {
+    id: 9 # fluids and blocks share ID space
+    name: "WATER" # name of fluid
+    source_level: 8 # how many levels the fluid has before not being able to spread any farther
+    creates_sources: true # whether or not two fluid sources one block from eachother will create a source in-between them
+    entry: { # a single fluid interaction entry
+        fluid: "LAVA" # fluid-fluid interaction
+        direction: tag[sides] # what direction the lava is to cause the interaction
+        change_to: "STONE" # what block/fluid to change the water to when the interaction happens
+    }
+    entry: { # a fluid-block interaction entry
+        block: "SNOW"
+        direction: tag[sides]
+        change_to: "SNOW"
+    }
+    # entry: { # a fluid-group interaction entry
+    #     group: STONE # groups can be either fluid groups or block groups
+    #     direction: tag[any]
+    #     change_to: "ANDESITE"
+    # }
+
+    texture_map: { # fluids also reference the block_atlas.png file for textures
+        front: int[1, 4]
+        back: int[1, 4]
+        left: int[1, 4]
+        right: int[1, 4]
+        top: int[1, 4]
+        bottom: int[1, 4]
+    }
+
+    generation_rules: { # how the fluid generates
+        temp : -1.0..1.0
+        elevation : -255..256
+        depth : 0..512
+        biome : tag[all]
+    }
+
+    group: EXAMPLE # water is a part of the EXAMPLE fluid group
+}
+
+group: { # example fluid group
+    name: "EXAMPLE"
+}
