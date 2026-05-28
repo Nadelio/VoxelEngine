@@ -1,8 +1,6 @@
 # Todo List
 This is the list of things to complete before survival mode
 
-- Player model
-	- Refactor animation loading to reference model information in `.data` files for animations, camera position, etc.
 - New blocks
 	- Water
 		- Fluids

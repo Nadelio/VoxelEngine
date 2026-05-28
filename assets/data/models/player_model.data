@@ -1,5 +1,5 @@
 # format for the animation maps is Map<Tag, String | [String: (1, 5)]>
-# camera anchors are [Int: (3, 3)], and are relative to the player's position
+# camera anchors are [Float: (3, 3)], and are relative to the player's position
 
 # define the root bone
 root_bone : "Waist"
@@ -10,14 +10,18 @@ head_root_bone : "Head"
 # third person animations
 third_person : {
     # define where the camera is positioned
-    camera_anchor : int[0f, 0.62f, 0f] # placed slightly behind the player's position
-    walk : "walking"
+    camera_anchor : float[0f, 0.62f, 0f] # placed slightly behind the player's position
+    idle : "idle"
+    walk : "walk"
+    sprint : "sprint"
     stand : "stand_idle"
-    crouch : "crouch_idle"
+    crouch : "crouch"
     crouch_walk : "crouch_walk"
-    prone : "prone_idle"
-    crawl : "crawling"
-    jump : "jumping"
+    prone : "prone"
+    crawl : "crawl"
+    wade : "wading"
+    swim : "swimming"
+    jump : "jump"
     fall : "falling"
     land : "landing"
     place : "place_block"
@@ -34,7 +38,7 @@ third_person_transitions : {
 
 # first person animations
 first_person : {
-    camera_anchor : int[0f, 0f, 0f] # placed at the player's position
+    camera_anchor : float[0f, 0f, 0f] # placed at the player's position
     break_hand : "break_hand"
     break_tool : "break_tool"
     pick : "pick_item"

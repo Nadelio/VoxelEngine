@@ -15,6 +15,8 @@
 
 #include <SDL3/SDL.h>
 
+#include "DataFormat.hpp"
+
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/common.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -322,6 +324,96 @@ void PlayerModel::ClearGpuMeshes() {
     }
 }
 
+bool PlayerModel::LoadModelConfig(const std::string& configPath) {
+    std::string errMsg;
+    const auto doc = DataFormat::ParseFile(configPath, &errMsg);
+    if(!doc) {
+        SDL_Log("PlayerModel: failed to parse player_model.data at '%s': %s",
+                configPath.c_str(), errMsg.c_str());
+        return false;
+    }
+
+    auto readVec3 = [](const DataFormat::Value* v, glm::vec3& out) -> bool {
+        if(!v || !v->IsArray()) return false;
+        const DataFormat::TypedArray& arr = v->AsArray();
+        if(arr.elements.size() < 3) return false;
+        float components[3] = {0.0f, 0.0f, 0.0f};
+        for(int i = 0; i < 3; ++i) {
+            if(!arr.elements[static_cast<std::size_t>(i)]) return false;
+            const DataFormat::Value& elem = *arr.elements[static_cast<std::size_t>(i)];
+            if(elem.IsFloat())      components[i] = static_cast<float>(elem.AsFloat());
+            else if(elem.IsInt())   components[i] = static_cast<float>(elem.AsInt());
+            else                    return false;
+        }
+        out = glm::vec3(components[0], components[1], components[2]);
+        return true;
+    };
+
+    auto readAnimMap = [](const DataFormat::Object& obj,
+                          std::unordered_map<std::string, std::string>& out) {
+        for(const auto& [key, valPtr] : obj.entries) {
+            if(key == "camera_anchor") continue;
+            if(!valPtr) continue;
+            if(valPtr->IsString()) {
+                out[key] = valPtr->AsString();
+            } else if(valPtr->IsArray()) {
+                const DataFormat::TypedArray& arr = valPtr->AsArray();
+                if(!arr.elements.empty() && arr.elements[0] && arr.elements[0]->IsString()) {
+                    out[key] = arr.elements[0]->AsString();
+                }
+            }
+        }
+    };
+
+    auto readTransitions = [](const DataFormat::Object& obj,
+                               std::unordered_map<std::string,
+                               std::unordered_map<std::string, std::string>>& out) {
+        for(const auto& [fromState, valPtr] : obj.entries) {
+            if(!valPtr || !valPtr->IsObject()) continue;
+            const DataFormat::Object& inner = valPtr->AsObject();
+            for(const auto& [toState, clipPtr] : inner.entries) {
+                if(!clipPtr || !clipPtr->IsString()) continue;
+                out[fromState][toState] = clipPtr->AsString();
+            }
+        }
+    };
+
+    if(const auto* v = doc->Get("root_bone"); v && v->IsString())
+        config_.rootBone = v->AsString();
+
+    if(const auto* v = doc->Get("head_root_bone"); v && v->IsString())
+        config_.headRootBone = v->AsString();
+
+    if(const auto* v = doc->Get("third_person"); v && v->IsObject()) {
+        const DataFormat::Object& obj = v->AsObject();
+        readVec3(obj.Get("camera_anchor"), config_.thirdPersonCameraAnchor);
+        readAnimMap(obj, config_.thirdPersonAnims);
+    }
+
+    if(const auto* v = doc->Get("third_person_transitions"); v && v->IsObject()) {
+        readTransitions(v->AsObject(), config_.thirdPersonTransitions);
+    }
+
+    if(const auto* v = doc->Get("first_person"); v && v->IsObject()) {
+        const DataFormat::Object& obj = v->AsObject();
+        readVec3(obj.Get("camera_anchor"), config_.firstPersonCameraAnchor);
+        readAnimMap(obj, config_.firstPersonAnims);
+    }
+
+    if(const auto* v = doc->Get("first_person_transitions"); v && v->IsObject()) {
+        readTransitions(v->AsObject(), config_.firstPersonTransitions);
+    }
+
+    SDL_Log("PlayerModel: loaded config from '%s' (root='%s', head='%s', "
+            "third_person_anims=%zu, first_person_anims=%zu)",
+            configPath.c_str(),
+            config_.rootBone.c_str(),
+            config_.headRootBone.c_str(),
+            config_.thirdPersonAnims.size(),
+            config_.firstPersonAnims.size());
+    return true;
+}
+
 bool PlayerModel::Initialize() {
     if(!LoadGLFunctions()) {
         SDL_Log("PlayerModel: failed to resolve required OpenGL functions.");
@@ -335,6 +427,10 @@ bool PlayerModel::Initialize() {
     meshes_.clear();
     skins_.clear();
     animationHandler_.Clear();
+    config_ = AnimationConfig{};
+
+    const std::string configPath = ResolveAssetPath("assets/data/models/player_model.data");
+    LoadModelConfig(configPath);
 
     const std::string modelPath = ResolveAssetPath("assets/models/player_model.gltf");
     if(!LoadGltf(modelPath)) {
@@ -346,9 +442,18 @@ bool PlayerModel::Initialize() {
         const std::string animationsDir = ResolveAssetPath("assets/animations/player");
         LoadAnimations(animationsDir);
     }
-    activeClip_ = animationHandler_.FindClip("idle");
-    if(!activeClip_) {
-        activeClip_ = animationHandler_.FindClip("walk");
+
+    {
+        const auto idleIt = config_.thirdPersonAnims.find("idle");
+        const std::string idleClip = (idleIt != config_.thirdPersonAnims.end())
+            ? idleIt->second : "idle";
+        activeClip_ = animationHandler_.FindClip(idleClip);
+        if(!activeClip_) {
+            const auto walkIt = config_.thirdPersonAnims.find("walk");
+            const std::string walkClip = (walkIt != config_.thirdPersonAnims.end())
+                ? walkIt->second : "walk";
+            activeClip_ = animationHandler_.FindClip(walkClip);
+        }
     }
     if(activeClip_) {
         activeClipName_ = activeClip_->name;
@@ -465,7 +570,7 @@ void PlayerModel::BuildAnimatedNodeTransforms(
             s = glm::mix(prevS, curS, blendAlpha);
         }
 
-        if (node.name == "Head") {
+        if (node.name == config_.headRootBone) {
             glm::quat yawRot = glm::angleAxis(this->headYawOffset_, glm::vec3(0.0f, 1.0f, 0.0f));
             glm::quat pitchRot = glm::angleAxis(this->headPitch_, glm::vec3(1.0f, 0.0f, 0.0f));
             r = yawRot * pitchRot;
@@ -494,7 +599,7 @@ void PlayerModel::BuildAnimatedNodeTransforms(
     }
 
     for (std::size_t i = 0; i < nodes_.size(); ++i) {
-        if (nodes_[i].name == "Head") {
+        if (nodes_[i].name == config_.headRootBone) {
             glm::mat4& m = globalTransforms[i];
             glm::vec3 translation, skew, scale;
             glm::vec4 perspective;
@@ -515,32 +620,35 @@ void PlayerModel::UpdateAnimation(const Physics::Entity& player, float dtSeconds
     const float speedXZ = std::sqrt(player.velocity.x * player.velocity.x + player.velocity.z * player.velocity.z);
     const bool moving = speedXZ > 0.05f;
 
-    //TODO: Refactor to use Map<state, animation name> in player_model.json
-    //TODO: Add new states
-    std::string wantedClip = "idle";
+    // TODO: implement all player states (like falling, landing, etc.)
+    std::string stateTag = "idle";
     if(player.posture == Physics::PostureState::CRAWLING) {
-        wantedClip = moving ? "crawl" : "prone";
+        stateTag = moving ? "crawl" : "prone";
     } else if(player.posture == Physics::PostureState::CROUCHING && moving) {
-        wantedClip = "crouch_walk";
+        stateTag = "crouch_walk";
     } else if(player.posture == Physics::PostureState::CROUCHING) {
-        wantedClip = "crouch";
+        stateTag = "crouch";
     } else if(!player.onGround) {
-        wantedClip = "jump";
+        stateTag = "jump";
     } else if(moving && sprinting) {
-        wantedClip = "sprint";
+        stateTag = "sprint";
     } else if(moving) {
-        wantedClip = "walk";
+        stateTag = "walk";
     }
 
-    //TODO: Refactor `FindClip()` to reference the Map<state, animation name> to find the relevant animation for the state instead of searching the .gltf model itself
-    const AnimationHandler::Clip* nextClip = animationHandler_.FindClip(wantedClip);
+    auto resolveClip = [&](const std::string& tag) -> const AnimationHandler::Clip* {
+        const auto it = config_.thirdPersonAnims.find(tag);
+        const std::string clipName = (it != config_.thirdPersonAnims.end()) ? it->second : tag;
+        return animationHandler_.FindClip(clipName);
+    };
+
+    // TODO: implement all player states (like falling, landing, etc.)
+    const AnimationHandler::Clip* nextClip = resolveClip(stateTag);
+    if(!nextClip && moving) {
+        nextClip = resolveClip("walk");
+    }
     if(!nextClip) {
-        if(moving) {
-            nextClip = animationHandler_.FindClip("walk");
-        }
-        if(!nextClip) {
-            nextClip = animationHandler_.FindClip("idle");
-        }
+        nextClip = resolveClip("idle");
     }
 
     if(nextClip != activeClip_) {

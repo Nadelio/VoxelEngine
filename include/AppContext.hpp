@@ -58,7 +58,8 @@ struct AppContext {
 	std::string selectedSkinName;
 	std::string selectedCapePath;
 	std::string selectedCapeName;
-	bool        capeEnabled               = true;    bool        toggleSprint              = false;
+	bool        capeEnabled               = true;
+	bool        toggleSprint              = false;
 	// Mutable game-wide state
 	GameState         gameState          = GameState::MAIN_MENU;
 	WindowMode        windowMode         = WindowMode::WINDOWED_FULLSCREEN;

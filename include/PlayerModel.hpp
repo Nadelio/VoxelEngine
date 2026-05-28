@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <SDL3/SDL_opengl.h>
@@ -17,6 +18,19 @@
 
 class PlayerModel {
 public:
+    struct AnimationConfig {
+        std::string rootBone     = "Waist";
+        std::string headRootBone = "Head";
+
+        std::unordered_map<std::string, std::string> thirdPersonAnims;
+        std::unordered_map<std::string, std::string> firstPersonAnims;
+
+        glm::vec3 thirdPersonCameraAnchor{0.0f, 0.62f, 0.0f};
+        glm::vec3 firstPersonCameraAnchor{0.0f, 0.0f, 0.0f};
+
+        std::unordered_map<std::string, std::unordered_map<std::string, std::string>> thirdPersonTransitions;
+        std::unordered_map<std::string, std::unordered_map<std::string, std::string>> firstPersonTransitions;
+    };
     PlayerModel() = default;
     ~PlayerModel();
 
@@ -79,6 +93,7 @@ private:
 
     bool LoadGltf(const std::string& gltfPath);
     bool LoadAnimations(const std::string& animationDirectory);
+    bool LoadModelConfig(const std::string& configPath);
 
     void ClearGpuMeshes();
     void DrawNodeRecursive(
@@ -108,6 +123,7 @@ private:
 
     int capeAnchorNode_ = -1;
 
+    AnimationConfig config_;
     SkinTexture skinTexture_;
     CapeModel capeModel_;
     AnimationHandler animationHandler_;
