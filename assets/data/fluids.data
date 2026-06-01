@@ -35,10 +35,10 @@ fluid: {
     }
 
     generation_rules: { # how the fluid generates
-        temp : -1.0..1.0
-        elevation : -255..256
-        depth : 0..512
-        biome : tag[all]
+        temp: -1.0..1.0
+        elevation: -255..256
+        depth: 0..512
+        biome: tag[all]
     }
 
     group: EXAMPLE # water is a part of the EXAMPLE fluid group
