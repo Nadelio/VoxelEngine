@@ -9,6 +9,7 @@ local redTeam = Team.new("Red")
 local blueTeam = Team.new("Blue")
 
 function GlobalStart() -- called upon server/world starting
+    -- query the registry for blocks by ID
     local data = registry.getBlock(STONE)
     if data then
         engine.log("Block name: " .. data.name)
@@ -65,6 +66,14 @@ function GlobalUpdate() -- updates for the entire world every frame
             blueTeam:remove(events["PlayerLeft"].playerID)
         else
             redTeam:remove(events["PlayerLeft"].playerID)
+        end
+    end
+
+    if events["PlayerKilled"].occured then
+        if blueTeam:has(events["PlayerKilled"].killedBy) then
+            blueTeam:setScore(blueTeam.score + 1)
+        else
+            redTeam:setScore(redTeam.score + 1)
         end
     end
 end
