@@ -10,6 +10,8 @@ This is the list of things to complete after survival mode
 	- Lightning
 - Lua Scripting Support
 	- API
+		- `require("VoxelEngine")`/`VoxelEngine.lua` for LSP support
+			- Tables and types
 		- Physics
 			- Creating hitboxes/colliders and adding event callbacks
 		- UI

@@ -1,19 +1,20 @@
-require("VoxelEngine")
+local VoxelEngine = require("VoxelEngine")
+local Vec3 = VoxelEngine.Vec3
 
 local STONE = 1
 local DIRT  = 2
-
 local Team = require("team")
-
 local redTeam = Team.new("Red")
 local blueTeam = Team.new("Blue")
 
+--- GLOBAL ENGINE FUNCTIONS ---
+
 function GlobalStart() -- called upon server/world starting
     -- query the registry for blocks by ID
-    local data = registry.getBlock(STONE)
-    if data then
-        engine.log("Block name: " .. data.name)
-        engine.log("Gravity:    " .. tostring(data.affectedByGravity))
+    local stone_block_data = registry.getBlock(STONE)
+    if stone_block_data then
+        engine.log("Block name: " .. stone_block_data.name)
+        engine.log("Gravity:    " .. tostring(stone_block_data.affectedByGravity))
     end
 
     -- placing/removing blocks
@@ -36,23 +37,7 @@ function GlobalStart() -- called upon server/world starting
     registry.registerKeybind(custom_keybind)
 end
 
-function LocalStart() -- called upon player joining server/world
-    player.registerState("DASHING");
-    player.loadModel("./models/custom_player_model.gltf") -- all paths are restricted to the ./server/assets/ folder to avoid security issues
-    
-    player.hotbar.setSlot(0, STONE)
-    player.hotbar.setSlot(1, DIRT)
-    player.hotbar.selectSlot(0)
-    engine.log(player.hotbar.currentSlot().isItem()) -- returns true/false based on if the slot contains an item
-    engine.log(player.hotbar.currentSlot().isBlock()) -- returns true/false based on if the slot contains an block
-    engine.log(player.hotbar.currentSlot().name()) -- returns the name of the block or item as a string
-    player.hotbar.lock() -- prevent changes to the player's hotbar (like picking up, dropping items/blocks, or swapping items/blocks around in slots)
-
-    player.teleportTo(Vec3.new(0, 5, 0))
-    player.addVelocity(Vec3.new(0, 1, 0)) -- Add small upwards impulse force
-end
-
-function GlobalUpdate() -- updates for the entire world every frame
+function FixedGlobalUpdate() -- updates for the entire world at a fixed rate (60hz)
     if events["NewPlayer"].occured then
         if blueTeam:size() > redTeam:size() then
             redTeam:add(events["NewPlayer"].playerID)
@@ -78,9 +63,30 @@ function GlobalUpdate() -- updates for the entire world every frame
     end
 end
 
-function LocalUpdate() -- updates for each individual player every frame
+--- LOCAL ENGINE FUNCTIONS ---
+
+function LocalStart(player) -- called upon player joining server/world
+    player.registerState("DASHING");
+    player.loadModel("./models/custom_player_model.gltf") -- all paths are restricted to the ./server/assets/ folder to avoid security issues
+    player.loadTexture("./textures/models/custom_player_texture.png")
+
+    player.hotbar.setSlot(0, STONE)
+    player.hotbar.setSlot(1, DIRT)
+    player.hotbar.selectSlot(0)
+    engine.log(player.hotbar.currentSlot().isItem()) -- returns true/false based on if the slot contains an item
+    engine.log(player.hotbar.currentSlot().isBlock()) -- returns true/false based on if the slot contains an block
+    engine.log(player.hotbar.currentSlot().name()) -- returns the name of the block or item as a string
+    player.hotbar.lock() -- prevent changes to the player's hotbar (like picking up, dropping items/blocks, or swapping items/blocks around in slots)
+
+    player.teleportTo(Vec3.new(0, 5, 0))
+    player.addVelocity(Vec3.new(0, 1, 0)) -- Add small upwards impulse force
+
+    player.loadUI("./data/ui/player_ui.data") -- feed players custom UI
+end
+
+function LocalUpdate(player) -- updates for each individual player every frame
     -- do actions based on a keypress
-    if keys.isPressed["F"] then
+    if key.isPressed["F"] then
         player.changeState("DASHING")
         player.playAnimation("DASH");
         audio.playLocalSound("dash_sound", player.getPosition());
@@ -88,13 +94,13 @@ function LocalUpdate() -- updates for each individual player every frame
     end
 
     -- do actions based on a keybind
-    if keybinds.isPressed["hotbar_1"] then
+    if keybind.isPressed["hotbar_1"] then
         player.hotbar.setSlot(0)
         player.teleportTo(world.spawn) -- teleport player to world spawn
     end
 
     -- do actions based on custom keybind
-    if keybinds.isPressed["goto_spawn"] then
+    if keybind.isPressed["goto_spawn"] then
         player.hotbar.setSlot(0)
         player.teleportTo(world.spawn)
     end
@@ -105,24 +111,23 @@ function LocalUpdate() -- updates for each individual player every frame
     end
 end
 
-function FixedGlobalUpdate() -- updates for the entire world at a fixed rate (60hz)
-
-end
-
-function FixedLocalUpdate() -- updates for each individual player at a fixed rate (60hz)
+function FixedLocalUpdate(player) -- updates for each individual player at a fixed rate (60hz)
+    -- query player posture
     engine.log("Posture: " .. player.getPosture())
     
+    -- query player position, velocity, and looking direction
     local cx, cy, cz = player.getPosition()
+    local vx, vy, vz = player.getVelocity()
     local fx, fy, fz = player.getForward()
     engine.log(string.format("Looking from (%.1f, %.1f, %.1f) toward (%.2f, %.2f, %.2f)",
         cx, cy, cz, fx, fy, fz))
+    engine.log("Player speed is: " .. vx .. ", " .. vy .. ", " .. vz)
         
+    -- query player hotbar
     engine.log("Selected slot : " .. player.hotbar.getSelectedSlot())
     engine.log("Selected Slot Block/Item ID : " .. player.hotbar.currentSlot().id())
 
-    -- query player position and velocity
-    local px, py, pz = player.getPosition()
-    engine.log("Player at: " .. px .. ", " .. py .. ", " .. pz)
-    local vx, vy, vz = player.getVelocity()
-    engine.log("Player speed is: " .. vx .. ", " .. vy .. ", " .. vz)
+    -- query player state
+    local state = player.getState()
+    engine.log("Current player state: " .. state)
 end
