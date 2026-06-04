@@ -112,9 +112,6 @@ function LocalUpdate(player) -- updates for each individual player every frame
 end
 
 function FixedLocalUpdate(player) -- updates for each individual player at a fixed rate (60hz)
-    -- query player posture
-    engine.log("Posture: " .. player.getPosture())
-    
     -- query player position, velocity, and looking direction
     local cx, cy, cz = player.getPosition()
     local vx, vy, vz = player.getVelocity()
