@@ -20,6 +20,8 @@
 #include "BlockRegistry.hpp"
 #include "Camera.hpp"
 #include "DebugOverlay.hpp"
+#include "FluidGrid.hpp"
+#include "FluidRegistry.hpp"
 #include "Grid.hpp"
 #include "Hotbar.hpp"
 #include "Keybinds.hpp"
@@ -258,6 +260,13 @@ int main() {
 		quit(1);
 	}
 
+	// init fluid registry from fluids.data (optional – missing file is a warning)
+	const std::string fluidsDataPath = ResolveAssetPath("assets/data/fluids.data"sv);
+	FluidRegistry fluidRegistry;
+	if(!LoadFluids(fluidsDataPath, &blockAtlas, fluidRegistry)) {
+		std::fprintf(stderr, "Warning: could not load '%s', no fluids registered.\n", fluidsDataPath.c_str());
+	}
+
 	// get world dir
 	const std::string worldsDir = [&]() -> std::string {
 		const std::string rel = "worlds/";
@@ -268,6 +277,9 @@ int main() {
 
 	// init grid
 	Grid grid(&blockRegistry);
+
+	// init fluid grid
+	FluidGrid fluidGrid(&fluidRegistry);
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
@@ -291,6 +303,8 @@ int main() {
 	ctx.blockAtlas = &blockAtlas;
 	ctx.itemAtlas  = &itemAtlas;
 	ctx.blockRegistry = &blockRegistry;
+	ctx.fluidRegistry = &fluidRegistry;
+	ctx.fluidGrid     = &fluidGrid;
 	ctx.grid = &grid;
 	ctx.physics = &physics;
 	ctx.physicsConstants = &physicsConstants;
@@ -302,6 +316,7 @@ int main() {
 	ctx.biomeRegistry = &biomeRegistry;
 	ctx.worldsDir = worldsDir;
 	ctx.blocksDataPath = blocksDataPath;
+	ctx.fluidsDataPath = fluidsDataPath;
 	ctx.physicsConstantsPath = physicsConstantsPath;
 	ctx.keybindsDataPath = keybindsDataPath;
 	ctx.selectedSkinPath = defaultSkinPath;

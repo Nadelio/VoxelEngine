@@ -8,6 +8,7 @@
 #include "BiomeRegistry.hpp"
 #include "BlockRegistry.hpp"
 #include "DataFormat.hpp"
+#include "FluidRegistry.hpp"
 #include "TerrainGen.hpp"
 
 // Parses a blocks.data file and registers all groups and block definitions
@@ -162,4 +163,128 @@ inline bool LoadBiomes(const std::string& path, BiomeRegistry& registry) {
 		if (!b.id.empty()) registry.Register(b);
 	}
 	return !registry.Biomes().empty();
+}
+
+// Parses a fluids.data file and registers all groups and fluid definitions
+// into `registry`. Returns false on failure.
+inline bool LoadFluids(const std::string& path, const AtlasTexture* atlas, FluidRegistry& registry) {
+	const auto doc = DataFormat::ParseFile(path);
+	if (!doc) { return false; }
+
+	static constexpr std::array<const char*, 6> kFaceNames = {
+		"front", "back", "left", "right", "top", "bottom"
+	};
+
+	// Parse direction tag helper
+	auto parseDirection = [](const std::string& tag) -> FluidInteractionDirection {
+		if (tag == "bottom") return FluidInteractionDirection::Bottom;
+		if (tag == "top")    return FluidInteractionDirection::Top;
+		if (tag == "sides")  return FluidInteractionDirection::Sides;
+		if (tag == "none")   return FluidInteractionDirection::None;
+		return FluidInteractionDirection::Any; // "any" or unrecognised
+	};
+
+	// Register fluid groups first
+	for (const auto& [key, val] : doc->entries) {
+		if (key != "group" || !val.IsObject()) continue;
+		const DataFormat::Object& obj = val.AsObject();
+		const DataFormat::Value* nameVal = obj.Get("name");
+		if (!nameVal || !nameVal->IsString()) continue;
+		FluidGroupData grp;
+		grp.name = nameVal->AsString();
+		registry.RegisterGroup(grp);
+	}
+
+	// Register fluid definitions
+	for (const auto& [key, val] : doc->entries) {
+		if (key != "fluid" || !val.IsObject()) continue;
+		const DataFormat::Object& obj = val.AsObject();
+
+		const DataFormat::Value* idVal   = obj.Get("id");
+		const DataFormat::Value* nameVal = obj.Get("name");
+		if (!idVal || !nameVal || !idVal->IsInt() || !nameVal->IsString()) continue;
+
+		FluidData fd;
+		fd.fluidID = static_cast<uint32_t>(idVal->AsInt());
+		fd.name    = nameVal->AsString();
+		fd.atlas   = atlas;
+
+		if (const auto* v = obj.Get("source_level"); v && v->IsInt())
+			fd.sourceLevel = static_cast<int>(v->AsInt());
+		if (const auto* v = obj.Get("creates_sources"); v && v->IsBool())
+			fd.createsSources = v->AsBool();
+
+		// Texture map (face tiles)
+		bool tilesValid = true;
+		for (int i = 0; i < 6; ++i) {
+			const DataFormat::Value* fv = obj.Get(kFaceNames[i]);
+			// fluids.data stores face tiles inside texture_map sub-object
+			// fall back to top-level if not present
+			if (!fv) {
+				const DataFormat::Value* tmVal = obj.Get("texture_map");
+				if (tmVal && tmVal->IsObject()) fv = tmVal->AsObject().Get(kFaceNames[i]);
+			}
+			if (!fv || !fv->IsArray()) { tilesValid = false; break; }
+			const DataFormat::TypedArray& arr = fv->AsArray();
+			if (arr.elements.size() < 2) { tilesValid = false; break; }
+			const DataFormat::Value& fx = *arr.elements[0];
+			const DataFormat::Value& fy = *arr.elements[1];
+			if (!fx.IsInt() || !fy.IsInt()) { tilesValid = false; break; }
+			fd.faceTiles[i] = FaceTile{ static_cast<int>(fx.AsInt()), static_cast<int>(fy.AsInt()) };
+		}
+		if (!tilesValid) {
+			std::fprintf(stderr, "Warning: fluid '%s' has invalid texture_map; skipping.\n", fd.name.c_str());
+			continue;
+		}
+
+		// Interaction entries
+		for (const auto& [eKey, eValPtr] : obj.entries) {
+			if (eKey != "entry" || !eValPtr || !eValPtr->IsObject()) continue;
+			const DataFormat::Object& eo = eValPtr->AsObject();
+
+			FluidInteractionEntry entry;
+			if (const auto* v = eo.Get("direction"); v && v->IsTag())
+				entry.direction = parseDirection(v->AsTag().name);
+			if (const auto* v = eo.Get("change_to"); v && v->IsString())
+				entry.changeTo = v->AsString();
+
+			if (const auto* v = eo.Get("fluid"); v && v->IsString()) {
+				entry.targetType = FluidInteractionEntry::TargetType::Fluid;
+				entry.targetName = v->AsString();
+				fd.interactions.push_back(entry);
+			} else if (const auto* v = eo.Get("block"); v && v->IsString()) {
+				entry.targetType = FluidInteractionEntry::TargetType::Block;
+				entry.targetName = v->AsString();
+				fd.interactions.push_back(entry);
+			} else if (const auto* v = eo.Get("group"); v && v->IsTag()) {
+				entry.targetType = FluidInteractionEntry::TargetType::Group;
+				entry.targetName = v->AsTag().name;
+				fd.interactions.push_back(entry);
+			}
+		}
+
+		// Generation rules (inside generation_rules sub-object)
+		if (const auto* grVal = obj.Get("generation_rules"); grVal && grVal->IsObject()) {
+			const DataFormat::Object& gr = grVal->AsObject();
+			if (const auto* v = gr.Get("temp"); v && v->IsFloatRange()) {
+				fd.tempMin = static_cast<float>(v->AsFloatRange().lo);
+				fd.tempMax = static_cast<float>(v->AsFloatRange().hi);
+				fd.hasGenRules = true;
+			}
+			if (const auto* v = gr.Get("elevation"); v && v->IsIntRange()) {
+				fd.elevMin = static_cast<int>(v->AsIntRange().lo);
+				fd.elevMax = static_cast<int>(v->AsIntRange().hi);
+				fd.hasGenRules = true;
+			}
+		}
+
+		// Group membership
+		if (const auto* v = obj.Get("group"); v && v->IsTag())
+			fd.groups.push_back(v->AsTag().name);
+
+		if (!registry.Register(fd)) {
+			std::fprintf(stderr, "Fluid registration failed for ID %u (%s).\n", fd.fluidID, fd.name.c_str());
+		}
+	}
+	return !registry.Fluids().empty();
 }

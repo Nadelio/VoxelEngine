@@ -6,6 +6,8 @@
 
 #include "BiomeRegistry.hpp"
 #include "BlockRegistry.hpp"
+#include "FluidGrid.hpp"
+#include "FluidRegistry.hpp"
 #include "Grid.hpp"
 
 // A single layer in a Custom Superflat world, stacked bottom-to-top.
@@ -56,6 +58,11 @@ public:
     // Falls back to the legacy voronoi-based "plains"/"desert" split when `biomes` is null.
     static void Generate(Grid& grid, const BlockRegistry& registry,
                          const BiomeRegistry* biomes, const Params& params);
+
+    // Fill fluidGrid with fluid sources at low-elevation empty positions based on the
+    // registered fluid generation rules.  Call after Generate().
+    static void GenerateFluids(FluidGrid& fluidGrid, const Grid& blockGrid,
+                                const FluidRegistry& fluidRegistry, const Params& params);
 
     // Returns the surface Y at world position (x, z) for the given params.
     static int SampleSurfaceY(float x, float z, const Params& p);

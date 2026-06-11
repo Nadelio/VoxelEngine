@@ -98,6 +98,7 @@ add_executable(VoxelEngine
     src/Hotbar.cpp
     src/JSON.cpp
     src/AnimationHandler.cpp
+    src/FluidGrid.cpp
     src/MenuSession.cpp
     src/Physics.cpp
     src/CapeModel.cpp

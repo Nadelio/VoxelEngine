@@ -633,6 +633,16 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 								ctx.physics->SetConstants(*ctx.physicsConstants);
 						}
 					}
+					if (ctx.fluidRegistry && ctx.fluidGrid) {
+						ctx.fluidGrid->Clear();
+						TerrainGen::Params fluidParams;
+						fluidParams.seed = h.seed;
+						if (h.worldType == WorldFile::WorldType::Superflat)
+							fluidParams.superflatLayers = h.superflatLayers;
+						else if (h.worldType == WorldFile::WorldType::SingleBiome)
+							fluidParams.forceBiome = h.singleBiome;
+						TerrainGen::GenerateFluids(*ctx.fluidGrid, *ctx.grid, *ctx.fluidRegistry, fluidParams);
+					}
 					ctx.hotbar->SetSlot(0, GRASS);    ctx.hotbar->SetSlot(1, DIRT);
 					ctx.hotbar->SetSlot(2, STONE);    ctx.hotbar->SetSlot(3, ANDESITE);
 					ctx.hotbar->SetSlot(4, SAND);     ctx.hotbar->SetSlot(5, SNOW);
@@ -728,6 +738,11 @@ bool MenuSession::Frame(int winW, int winH, AppContext& ctx, WorldSession& world
 				genParams.structuresDir =
 				    (fs::path(ctx.blocksDataPath).parent_path() / "structures").string();
 				TerrainGen::Generate(*ctx.grid, *ctx.blockRegistry, ctx.biomeRegistry, genParams);
+
+				if (ctx.fluidRegistry && ctx.fluidGrid) {
+					ctx.fluidGrid->Clear();
+					TerrainGen::GenerateFluids(*ctx.fluidGrid, *ctx.grid, *ctx.fluidRegistry, genParams);
+				}
 
 				ctx.hotbar->SetSlot(0, GRASS);    ctx.hotbar->SetSlot(1, DIRT);
 				ctx.hotbar->SetSlot(2, STONE);    ctx.hotbar->SetSlot(3, ANDESITE);

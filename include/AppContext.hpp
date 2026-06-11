@@ -9,6 +9,8 @@
 #include "BlockRegistry.hpp"
 #include "Camera.hpp"
 #include "DebugOverlay.hpp"
+#include "FluidGrid.hpp"
+#include "FluidRegistry.hpp"
 #include "GameUI.hpp"
 #include "Grid.hpp"
 #include "Hotbar.hpp"
@@ -38,6 +40,8 @@ struct AppContext {
 
 	// Game objects
 	BlockRegistry*    blockRegistry      = nullptr;
+	FluidRegistry*    fluidRegistry      = nullptr;
+	FluidGrid*        fluidGrid          = nullptr;
 	Grid*             grid               = nullptr;
 	Physics*          physics            = nullptr;
 	PhysicsConstants* physicsConstants   = nullptr;
@@ -52,6 +56,7 @@ struct AppContext {
 	// Asset paths (needed for hot-reload and world management)
 	std::string worldsDir;
 	std::string blocksDataPath;
+	std::string fluidsDataPath;
 	std::string physicsConstantsPath;
 	std::string keybindsDataPath;
 	std::string selectedSkinPath;

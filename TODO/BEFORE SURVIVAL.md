@@ -21,11 +21,14 @@ This is the list of things to complete before survival mode
 	- Wood
 		- Saplings
 			- Tree/crop growth
+			- X plane model
+			- \# plane model
 		- Leaves
 			- Decay
 				- Leaf blocks decay into nothing if there isn't an oak log within 2 blocks of the leaf block.
 				- Add decay for grass blocks as well (grass block -> dirt block if block on top)
 	- Clay
+		- If fire lit above, convert to Fired Clay (Fired Clay can be carved into sculptures with a chisel)
 	- Ice
 		- Block-based friction values
 		- Surface water freezes based on temperature

@@ -415,3 +415,38 @@ void TerrainGen::Generate(Grid& grid, const BlockRegistry& registry, const Biome
     grid.RebuildVisibility();
     PlaceStructures(grid, registry, biomes, p);
 }
+
+void TerrainGen::GenerateFluids(FluidGrid& fluidGrid, const Grid& blockGrid,
+                                 const FluidRegistry& fluidRegistry, const Params& p) {
+    if (p.superflatLayers.empty() == false) return;
+    if (fluidRegistry.Fluids().empty()) return;
+
+    const int halfW = p.worldWidth  / 2;
+    const int halfD = p.worldDepth  / 2;
+    const int seaLevel = p.baseHeight;
+
+    for (const auto& [fid, fd] : fluidRegistry.Fluids()) {
+        if (!fd.hasGenRules) {
+            // if no rules, use the default sea-level fill
+        }
+
+        for (int z = -halfD; z < halfD; ++z)
+        for (int x = -halfW; x < halfW; ++x) {
+            if (fd.hasGenRules) {
+                const float temp = SampleTemperature(static_cast<float>(x),
+                                                     static_cast<float>(z), p);
+                if (temp < fd.tempMin || temp > fd.tempMax) continue;
+            }
+
+            for (int y = seaLevel; y > seaLevel - fd.sourceLevel; --y) {
+                if (!blockGrid.HasBlockAt({x, y, z}) && !fluidGrid.HasFluid(x, y, z)) {
+                    const bool isSrc = (y == seaLevel);
+                    fluidGrid.SetFluidBulk(x, y, z, fid,
+                                           static_cast<uint8_t>(fd.sourceLevel), isSrc);
+                }
+            }
+        }
+    }
+
+    fluidGrid.MarkAllDirty();
+}

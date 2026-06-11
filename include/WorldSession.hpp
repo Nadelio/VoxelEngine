@@ -64,6 +64,8 @@ private:
 	Shader    skinShader_;
 	Shader    shadowShader_;
 	Shader    shadowSkinShader_;
+	Shader    fluidShader_;
+	double    fluidTickAccum_ = 0.0;
 	GLuint    shadowFramebuffer_ = 0;
 	GLuint    shadowDepthTexture_ = 0;
 	int       shadowMapSize_ = 4096;

@@ -188,6 +188,18 @@ void WorldSession::Enter(AppContext& ctx, const WorldFile::Header& header, const
 		shadowShader_.LoadFromFiles(resolveAsset("assets/shaders/shadow_depth.vert"), resolveAsset("assets/shaders/shadow_depth.frag"));
 		shadowSkinShader_.LoadFromFiles(resolveAsset("assets/shaders/shadow_skin.vert"), resolveAsset("assets/shaders/shadow_skin.frag"));
 	}
+	if (fluidShader_.Program() == 0) {
+		const auto resolveAsset = [](const std::string& rel) -> std::string {
+			if(const char* base = SDL_GetBasePath()) {
+				return (std::filesystem::path(base) / rel).string();
+			}
+			return rel;
+		};
+		if (!fluidShader_.LoadFromFiles(resolveAsset("assets/shaders/fluid.vert"),
+		                                resolveAsset("assets/shaders/fluid.frag"))) {
+			std::fprintf(stderr, "Warning: fluid shader load failed.\n");
+		}
+	}
 	(void)EnsureShadowResources();
 
 	{
@@ -504,6 +516,22 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 		ctx.physics->UpdateFallingBlocks(static_cast<float>(dt));
 		ctx.physics->ForceEntityUpIfInsideBlock(*ctx.player);
 
+		if (ctx.fluidGrid && ctx.fluidRegistry && !ctx.fluidRegistry->Fluids().empty()) {
+			fluidTickAccum_ += dt;
+			constexpr double kFluidTickInterval = 0.25;
+			if (fluidTickAccum_ >= kFluidTickInterval) {
+				fluidTickAccum_ -= kFluidTickInterval;
+				ctx.fluidGrid->Tick(
+					[&](glm::ivec3 pos) { return ctx.grid->HasBlockAt(pos); },
+					[&](glm::ivec3 pos) { return ctx.grid->GetBlockID(pos); },
+					[&](glm::ivec3 pos, uint32_t blockID) {
+						ctx.grid->AddBlock(pos.x, pos.y, pos.z, blockID);
+						ctx.fluidGrid->RemoveFluid(pos.x, pos.y, pos.z);
+					}
+				);
+			}
+		}
+
 		if (ctx.player->position.y < -16.0f) {
 			float safeY = 2.0f;
 			if (ctx.currentWorldHeader.worldType == WorldFile::WorldType::Superflat) {
@@ -586,6 +614,20 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 			fallingVisual.push_back({fb.pos, fb.blockID});
 		}
 		ctx.grid->DrawFloatBlocks(fallingVisual, *ctx.defaultShader, *ctx.blockAtlas, proj, view, lightSpaceMatrix);
+
+		if (ctx.fluidGrid && fluidShader_.Program() != 0) {
+			fluidShader_.Use();
+			fluidShader_.SetVec3("uSunDirection", sunDir.x, sunDir.y, sunDir.z);
+			fluidShader_.SetVec3("uSunColor", 0.95f, 0.93f, 0.90f);
+			fluidShader_.SetVec3("uAmbientColor", 0.36f, 0.39f, 0.44f);
+			fluidShader_.SetVec3("uPointLightPos", 0.0f, 0.0f, 0.0f);
+			fluidShader_.SetVec3("uPointLightColor", 0.0f, 0.0f, 0.0f);
+			fluidShader_.SetFloat("uPointLightRange", 1.0f);
+			fluidShader_.SetFloat("uPointLightIntensity", 0.0f);
+			fluidShader_.SetFloat("uFluidAlpha", 0.82f);
+			fluidShader_.SetInt("uShadowMap", 1);
+			ctx.fluidGrid->Draw(fluidShader_, *ctx.blockAtlas, proj, view, lightSpaceMatrix);
+		}
 	}
 
 	
