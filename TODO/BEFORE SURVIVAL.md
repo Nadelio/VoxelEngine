@@ -43,3 +43,9 @@ This is the list of things to complete before survival mode
 				- Alpha/Transparency
 	- Oak Stairs
 		- Custom block colliders (ramp collider specifically)
+- Simple In-game Debug CLI
+	- open debug cli with `open_cli` keybind (default is `/`)
+	- `set <block/fluid ID> (x,y,z)`
+	- `give block|item <abs ID>`
+	- `tp self (x,y,z)`
+- Fix bug with `.data` parser where `float[0f]` fails to parse bc it expects a `]` but gets a `f`.
