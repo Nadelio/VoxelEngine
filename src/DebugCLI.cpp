@@ -200,32 +200,42 @@ void DebugCLI::Execute(const char* cmd, AppContext& ctx) {
 	}
 
 	else if (verb == "give") {
-		if (tokens.size() < 3) {
-			std::snprintf(resultBuf_, sizeof(resultBuf_), "Usage: give block|item <id>");
+		if (tokens.size() < 2) {
+			std::snprintf(resultBuf_, sizeof(resultBuf_), "Usage: give <block/fluid id>");
 			hasResult_ = true; return;
 		}
 
-		const std::string& idStr = tokens[2];
+		const std::string& idStr = tokens[1];
 		uint32_t parsedID = 0;
 		const bool isNum  = ParseUint32(idStr, parsedID);
 
-		uint32_t blockID = 0;
-		bool     found   = false;
+		uint32_t giveID = 0;
+		bool     found  = false;
 		if (isNum) {
-			if (ctx.blockRegistry->Get(parsedID)) { blockID = parsedID; found = true; }
+			if (ctx.blockRegistry->Get(parsedID)) { giveID = parsedID; found = true; }
 		} else {
 			for (const auto& [id, bd] : ctx.blockRegistry->Blocks()) {
-				if (bd.name == idStr) { blockID = id; found = true; break; }
+				if (bd.name == idStr) { giveID = id; found = true; break; }
+			}
+		}
+
+		if (!found && ctx.fluidRegistry) {
+			if (isNum) {
+				if (ctx.fluidRegistry->Get(parsedID)) { giveID = parsedID; found = true; }
+			} else {
+				const FluidData* fd = ctx.fluidRegistry->GetByName(idStr);
+				if (fd) { giveID = fd->fluidID; found = true; }
 			}
 		}
 
 		if (found) {
-			ctx.hotbar->SetSlot(ctx.hotbar->SelectedSlot(), blockID);
-			const BlockData* bd = ctx.blockRegistry->Get(blockID);
+			ctx.hotbar->SetSlot(ctx.hotbar->SelectedSlot(), giveID);
+			const BlockData* bd = ctx.blockRegistry->Get(giveID);
+			const FluidData* fd = (!bd && ctx.fluidRegistry) ? ctx.fluidRegistry->Get(giveID) : nullptr;
+			const char* name = bd ? bd->name.c_str() : (fd ? fd->name.c_str() : "?");
 			std::snprintf(resultBuf_, sizeof(resultBuf_),
-				"Gave block %u (%s) to slot %d",
-				blockID, bd ? bd->name.c_str() : "?",
-				ctx.hotbar->SelectedSlot() + 1);
+				"Gave %u (%s) to slot %d",
+				giveID, name, ctx.hotbar->SelectedSlot() + 1);
 		} else {
 			std::snprintf(resultBuf_, sizeof(resultBuf_),
 				"Error: unknown id '%s'", idStr.c_str());
@@ -257,7 +267,7 @@ void DebugCLI::Execute(const char* cmd, AppContext& ctx) {
 
 	else {
 		std::snprintf(resultBuf_, sizeof(resultBuf_),
-			"Unknown command '%s'. Commands: set, give, tp", verb.c_str());
+			"Unknown command '%s'. Commands: set(block/fluid id x y z), give(id), tp(self x y z)", verb.c_str());
 		hasResult_ = true;
 	}
 }

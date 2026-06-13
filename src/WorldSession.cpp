@@ -419,6 +419,14 @@ void WorldSession::ProcessEvent(const SDL_Event& event, AppContext& ctx) {
 						const uint32_t selectedBlockID = ctx.hotbar->CurrentBlockID();
 						if(selectedBlockID != 0u || ctx.hotbar->SlotHasBlock(ctx.hotbar->SelectedSlot())) {
 							if(ctx.physics->CanPlaceBlockAt(*ctx.player, *ctx.camera, placePos)) {
+							if (ctx.fluidRegistry && ctx.fluidGrid &&
+							    ctx.fluidRegistry->Get(selectedBlockID)) {
+								const FluidData* fd = ctx.fluidRegistry->Get(selectedBlockID);
+								ctx.fluidGrid->SetFluid(placePos.x, placePos.y, placePos.z,
+								                        selectedBlockID,
+								                        static_cast<uint8_t>(fd->sourceLevel),
+								                        /*isSource=*/true);
+							} else {
 								uint8_t rotation = 0;
 								if(const BlockData* bd = ctx.blockRegistry->Get(selectedBlockID); bd && bd->canRotate.any()) {
 									// hit.faceIndex: 0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z
@@ -434,7 +442,8 @@ void WorldSession::ProcessEvent(const SDL_Event& event, AppContext& ctx) {
 									}
 								}
 								ctx.grid->AddBlock(placePos.x, placePos.y, placePos.z, selectedBlockID, rotation);
-								handModel_.TriggerSwing();
+							}
+							handModel_.TriggerSwing();
 							}
 						}
 					}
