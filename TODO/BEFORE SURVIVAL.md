@@ -11,6 +11,7 @@ This is the list of things to complete before survival mode
 				- Define in `./assets/data/fluids.data`
 			- Fluid rendering
 				- mimic MC-style of fluid rendering
+			- Fix fluid rendering so they actually appear
 		- Swimmming
 			- Wading state (enter wading state if in fluid and not sprinting)
 				- Wading animation
@@ -45,7 +46,9 @@ This is the list of things to complete before survival mode
 		- Custom block colliders (ramp collider specifically)
 - Simple In-game Debug CLI
 	- open debug cli with `open_cli` keybind (default is `/`)
-	- `set <block/fluid ID> (x,y,z)`
+	- `set <block/fluid ID> (x,y,z)`, fluid ids aren't being recognized
 	- `give block|item <abs ID>`
 	- `tp self (x,y,z)`
+	- `reload`, reloads assets/ folder
 - Fix bug with `.data` parser where `float[0f]` fails to parse bc it expects a `]` but gets a `f`.
+- Debug hotkey for reloading data/ needs to be updated to include all the new files

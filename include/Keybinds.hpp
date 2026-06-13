@@ -173,6 +173,7 @@ struct Keybinds {
     KeyChord debug_reload         = KeyChord{{SDL_SCANCODE_F3, SDL_SCANCODE_H}};
     KeyChord debug_save           = KeyChord{{SDL_SCANCODE_F3, SDL_SCANCODE_E}};
     KeyChord debug_load           = KeyChord{{SDL_SCANCODE_F3, SDL_SCANCODE_L}};
+    KeyChord open_cli             = KeyChord{{SDL_SCANCODE_SLASH}};
 
     Keybinds() {
         hotbar[0] = KeyChord{{SDL_SCANCODE_1}};
@@ -220,6 +221,7 @@ inline bool LoadKeybinds(const std::string& path, Keybinds& out) {
     readChord("debug_reload",         out.debug_reload);
     readChord("debug_save",           out.debug_save);
     readChord("debug_load",           out.debug_load);
+    readChord("open_cli",             out.open_cli);
 
     for (int i = 0; i < 9; ++i) {
         const std::string key = "hotbar_" + std::to_string(i + 1);

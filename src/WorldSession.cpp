@@ -265,6 +265,17 @@ void WorldSession::ProcessEvent(const SDL_Event& event, AppContext& ctx) {
 		const bool* const  kbState = SDL_GetKeyboardState(nullptr);
 		const bool nonRepeat = !event.key.repeat;
 
+		if(debugCli_.isOpen) {
+			if(sc == SDL_SCANCODE_ESCAPE) {
+				debugCli_.Close(ctx);
+			}
+			return;
+		}
+		if(nonRepeat && ChordPressed(sc, kbState, ctx.keybinds->open_cli)) {
+			debugCli_.Open(ctx);
+			return;
+		}
+
 		if(ChordPressed(sc, kbState, ctx.keybinds->pause)) {
 			ctx.gameState = GameState::PAUSE_MENU;
 			SDL_SetWindowRelativeMouseMode(ctx.window, false);
@@ -380,6 +391,8 @@ void WorldSession::ProcessEvent(const SDL_Event& event, AppContext& ctx) {
 	}
 
 	if(ctx.gameState == GameState::PLAYING) {
+		if(debugCli_.isOpen) return;
+
 		if(event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
 			// face neighbour offsets: 0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z
 			constexpr glm::ivec3 kFaceOffset[6] = {
@@ -442,7 +455,7 @@ void WorldSession::ProcessEvent(const SDL_Event& event, AppContext& ctx) {
 }
 
 bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppContext& ctx) {
-	if(ctx.gameState == GameState::PLAYING) {
+	if(ctx.gameState == GameState::PLAYING && !debugCli_.isOpen) {
 		ctx.camera->UpdateFromMouseDelta(mouseDeltaX, mouseDeltaY);
 	}
 	mouseDeltaX = 0.0f;
@@ -464,23 +477,21 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 		forward   = glm::normalize(forward);
 		const glm::vec3 right = glm::cross(forward, glm::vec3(0.0f, 1.0f, 0.0f));
 
+		const bool cliOpen = debugCli_.isOpen;
 		glm::vec3 moveDir(0.0f);
-		if(ChordHeld(keys, ctx.keybinds->move_forward)) moveDir += forward;
-		if(ChordHeld(keys, ctx.keybinds->move_back))    moveDir -= forward;
-		if(ChordHeld(keys, ctx.keybinds->move_right))   moveDir += right;
-		if(ChordHeld(keys, ctx.keybinds->move_left))    moveDir -= right;
+		if(!cliOpen && ChordHeld(keys, ctx.keybinds->move_forward)) moveDir += forward;
+		if(!cliOpen && ChordHeld(keys, ctx.keybinds->move_back))    moveDir -= forward;
+		if(!cliOpen && ChordHeld(keys, ctx.keybinds->move_right))   moveDir += right;
+		if(!cliOpen && ChordHeld(keys, ctx.keybinds->move_left))    moveDir -= right;
 		if(glm::length2(moveDir) > 0.0000001f) moveDir = glm::normalize(moveDir);
 
-		const bool crouchHeld = ChordHeld(keys, ctx.keybinds->crouch);
-		const bool movingForward = ChordHeld(keys, ctx.keybinds->move_forward);
+		const bool crouchHeld = !cliOpen && ChordHeld(keys, ctx.keybinds->crouch);
+		const bool movingForward = !cliOpen && ChordHeld(keys, ctx.keybinds->move_forward);
 		const bool anyMovement = glm::length2(moveDir) > 0.0000001f;
 
-		// Update sprint state
 		if (!ctx.toggleSprint) {
-			// Hold-to-sprint: active while key is held, moving forward, and not crouching
 			isSprinting_ = ChordHeld(keys, ctx.keybinds->sprint) && movingForward && !crouchHeld;
 		} else {
-			// Toggle sprint: cancel if crouching or if no movement
 			if (crouchHeld || !anyMovement) {
 				isSprinting_ = false;
 			}
@@ -490,8 +501,8 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 		const glm::vec3 desiredHV = moveDir * ctx.physicsConstants->moveSpeed * speedMultiplier;
 
 		if(ctx.isStructureSession && isFlying) {
-			const bool flyUp   = ChordHeld(keys, ctx.keybinds->jump);
-			const bool flyDown = ChordHeld(keys, ctx.keybinds->crouch);
+			const bool flyUp   = !cliOpen && ChordHeld(keys, ctx.keybinds->jump);
+			const bool flyDown = !cliOpen && ChordHeld(keys, ctx.keybinds->crouch);
 			float vertVel = 0.0f;
 			if(flyUp && !flyDown)      vertVel =  ctx.physicsConstants->moveSpeed;
 			else if(flyDown && !flyUp) vertVel = -ctx.physicsConstants->moveSpeed;
@@ -505,7 +516,7 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 				*ctx.player,
 				static_cast<float>(dt),
 				desiredHV,
-				ChordHeld(keys, ctx.keybinds->jump),
+				!cliOpen && ChordHeld(keys, ctx.keybinds->jump),
 				crouchHeld,
 				crawlToggleThisFrame,
 				*ctx.physicsConstants
@@ -794,6 +805,7 @@ bool WorldSession::Frame(double dt, int displayedFps, int winW, int winH, AppCon
 		}
 	}
 
+	debugCli_.Draw(winW, winH, ctx);
 	ctx.debugOverlay->Render();
 	return returnedToMenu;
 }

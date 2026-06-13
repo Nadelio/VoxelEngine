@@ -91,6 +91,7 @@ add_executable(VoxelEngine
     src/Chunk.cpp
     src/CubeMesh.cpp
     src/DataFormat.cpp
+    src/DebugCLI.cpp
     src/DebugOverlay.cpp
     src/FileDialog.cpp
     src/Grid.cpp

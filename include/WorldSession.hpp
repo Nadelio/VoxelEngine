@@ -3,6 +3,7 @@
 #include <SDL3/SDL.h>
 
 #include "AppContext.hpp"
+#include "DebugCLI.hpp"
 #include "HandModel.hpp"
 #include "PlayerModel.hpp"
 #include "Shader.hpp"
@@ -61,6 +62,7 @@ private:
 
 	HandModel handModel_;
 	PlayerModel playerModel_;
+	DebugCLI  debugCli_;
 	Shader    skinShader_;
 	Shader    shadowShader_;
 	Shader    shadowSkinShader_;

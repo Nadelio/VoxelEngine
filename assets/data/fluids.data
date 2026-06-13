@@ -5,7 +5,7 @@
 # A fluid can have 0 or more interaction entries
 
 fluid: {
-    id: 9 # fluids and blocks share ID space
+    id: 12 # fluids and blocks share ID space
     name: "WATER" # name of fluid
     source_level: 8 # how many levels the fluid has before not being able to spread any farther
     creates_sources: true # whether or not two fluid sources one block from eachother will create a source in-between them
